@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">互动3D壁纸</string>
+    <string name="wallpaper_description">互动3D深度视差动态壁纸 — 基于 Pixi.js</string>
+    <string name="btn_select_image">选择壁纸图片</string>
+    <string name="btn_generate_depth">生成深度图</string>
+    <string name="btn_set_wallpaper">设为系统壁纸</string>
+    <string name="btn_battery_opt">关闭电池优化</string>
+    <string name="miui_hint">小米/MIUI 用户提示：如果锁屏壁纸无法生效，请在系统"个性主题"中先应用任意一个系统动态壁纸，然后重新设置本应用即可覆盖。</string>
+</resources>

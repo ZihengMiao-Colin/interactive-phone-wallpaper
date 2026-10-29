@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Wallpaper</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100vw; height: 100vh; overflow: hidden;
+            background: #000;
+        }
+        body > canvas {
+            display: block; position: fixed; top: 0; left: 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Pixi.js (本地捆绑) -->
+    <script src="pixi.min.js"></script>
+
+    <!-- 共享模块 -->
+    <script src="../shared/config.js"></script>
+    <script src="../shared/image_loader.js"></script>
+    <script src="../shared/core_engine.js"></script>
+
+    <!-- 壁纸渲染入口 (Android 原生 Sensor 驱动) -->
+    <script src="wallpaper_render.js"></script>
+</body>
+</html>

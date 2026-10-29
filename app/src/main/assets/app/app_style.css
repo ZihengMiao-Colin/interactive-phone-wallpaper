@@ -1,0 +1,344 @@
+/**
+ * ============================================================================
+ * app/app_style.css — 主界面 WebView 样式 (移动端优化)
+ * ============================================================================
+ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    background: #0d0d1a;
+    color: #e0e0e0;
+    padding: 12px;
+    padding-bottom: 32px;
+    user-select: none;
+    -webkit-user-select: none;
+    min-height: 100vh;
+}
+
+/* ---- 顶部导航 ---- */
+#header {
+    text-align: center;
+    padding: 8px 0 12px;
+}
+#header h1 {
+    font-size: 20px;
+    color: #7ecfff;
+    margin-bottom: 4px;
+}
+#platform-hint {
+    font-size: 11px;
+    color: #666;
+}
+
+/* ---- 预览区域 ---- */
+#preview-container {
+    position: relative;
+    width: 100%;
+    height: 220px;
+    background: #111;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+#preview-container canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100% !important;
+    height: 100% !important;
+}
+#preview-placeholder {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #555;
+    font-size: 14px;
+    pointer-events: none;
+}
+#placeholder-icon {
+    font-size: 48px;
+    margin-bottom: 8px;
+    opacity: 0.5;
+}
+
+/* ---- 图片信息 ---- */
+#image-info {
+    text-align: center;
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 12px;
+    word-break: break-all;
+}
+
+/* ---- 区块 ---- */
+.section {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+}
+.section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ---- 滑条行 ---- */
+.row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.row:last-child { margin-bottom: 0; }
+.row label {
+    font-size: 13px;
+    color: #ccc;
+    flex: 0 0 auto;
+    margin-right: 8px;
+}
+.row .value {
+    font-size: 12px;
+    color: #7ecfff;
+    font-family: 'Consolas', monospace;
+    min-width: 36px;
+    text-align: right;
+    margin-right: 8px;
+}
+input[type="range"] {
+    -webkit-appearance: none;
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.12);
+    outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #7ecfff;
+    cursor: pointer;
+}
+
+/* ---- 按钮 ---- */
+button {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    color: #e0e0e0;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-bottom: 8px;
+    font-family: inherit;
+}
+button:last-child { margin-bottom: 0; }
+button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+button.primary {
+    background: rgba(126, 207, 255, 0.15);
+    border-color: rgba(126, 207, 255, 0.25);
+    color: #7ecfff;
+}
+button.primary:hover:not(:disabled) {
+    background: rgba(126, 207, 255, 0.25);
+}
+button.danger {
+    color: #ff6b6b;
+}
+
+/* ---- 进度条 ---- */
+#depth-progress {
+    margin-top: 8px;
+}
+.progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+.progress-fill {
+    width: 40%;
+    height: 100%;
+    background: #7ecfff;
+    border-radius: 2px;
+    animation: progress-pulse 1.5s ease-in-out infinite;
+}
+@keyframes progress-pulse {
+    0%, 100% { width: 20%; }
+    50% { width: 70%; }
+}
+#depth-progress-text {
+    font-size: 11px;
+    color: #888;
+}
+
+/* ---- MIUI 提示 ---- */
+.hint-text {
+    font-size: 12px;
+    color: #aaa;
+    line-height: 1.6;
+    padding: 8px 0;
+}
+.hint-text strong {
+    color: #ffb84d;
+}
+
+/* ---- 裁剪界面 ---- */
+#crop-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 1000;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+}
+#crop-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: rgba(0,0,0,0.9);
+    z-index: 10;
+    flex-shrink: 0;
+}
+#crop-header button {
+    width: auto;
+    padding: 8px 18px;
+    margin: 0;
+    font-size: 14px;
+    border-radius: 6px;
+}
+#crop-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #e0e0e0;
+}
+#crop-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    touch-action: none;           /* 禁止浏览器默认手势 */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+#crop-image {
+    position: absolute;
+    top: 0; left: 0;
+    display: block;
+    /* 保持图片原始比例，由 JS 动态设置尺寸 */
+    pointer-events: none;         /* 图片不响应触摸，由 crop-area 统一处理 */
+}
+
+/* ---- 四个半透明遮罩 (围绕裁剪框形成暗角效果) ---- */
+#crop-mask-top {
+    position: absolute; left: 0; right: 0;
+    background: rgba(0, 0, 0, 0.55);
+    pointer-events: none; z-index: 2;
+}
+#crop-mask-bottom {
+    position: absolute; left: 0; right: 0;
+    background: rgba(0, 0, 0, 0.55);
+    pointer-events: none; z-index: 2;
+}
+#crop-mask-left {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.55);
+    pointer-events: none; z-index: 2;
+}
+#crop-mask-right {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.55);
+    pointer-events: none; z-index: 2;
+}
+
+/* ---- 裁剪框 ---- */
+#crop-box {
+    position: absolute;
+    z-index: 3;
+    border: 2px solid rgba(126, 207, 255, 0.9);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+    pointer-events: none;         /* box 本身不透传事件，手柄单独处理 */
+}
+
+/* ---- 九宫格辅助线 ---- */
+.crop-guide {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.25);
+}
+.crop-guide-h1 {
+    left: 0; right: 0;
+    top: 33.33%;
+    height: 1px;
+}
+.crop-guide-h2 {
+    left: 0; right: 0;
+    top: 66.66%;
+    height: 1px;
+}
+.crop-guide-v1 {
+    top: 0; bottom: 0;
+    left: 33.33%;
+    width: 1px;
+}
+.crop-guide-v2 {
+    top: 0; bottom: 0;
+    left: 66.66%;
+    width: 1px;
+}
+
+/* ---- 四角拖拽手柄 ---- */
+.crop-handle {
+    position: absolute;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(126, 207, 255, 0.9);
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    pointer-events: auto;         /* 手柄可响应触摸 */
+    z-index: 5;
+    transform: translate(-50%, -50%);
+}
+.crop-handle-tl { top: 0; left: 0; }
+.crop-handle-tr { top: 0; right: 0; transform: translate(50%, -50%); }
+.crop-handle-bl { bottom: 0; left: 0; transform: translate(-50%, 50%); }
+.crop-handle-br { bottom: 0; right: 0; transform: translate(50%, 50%); }
+
+/* 手柄按下状态 */
+.crop-handle:active {
+    background: #fff;
+    border-color: #7ecfff;
+    transform: translate(-50%, -50%) scale(1.2);
+}
+.crop-handle-tr:active { transform: translate(50%, -50%) scale(1.2); }
+.crop-handle-bl:active { transform: translate(-50%, 50%) scale(1.2); }
+.crop-handle-br:active { transform: translate(50%, 50%) scale(1.2); }
+
+/* ---- 底部提示 ---- */
+#crop-hint {
+    padding: 10px 16px;
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+    background: rgba(0,0,0,0.9);
+    flex-shrink: 0;
+}

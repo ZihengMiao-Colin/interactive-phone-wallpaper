@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 主色调: 深空蓝 -->
+    <color name="primary">#7ecfff</color>
+    <color name="primary_dark">#4a90c4</color>
+    <color name="background">#0d0d1a</color>
+    <color name="surface">#1a1a2e</color>
+    <color name="text_primary">#e0e0e0</color>
+    <color name="text_secondary">#888888</color>
+</resources>

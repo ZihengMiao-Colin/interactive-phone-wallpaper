@@ -1,0 +1,26 @@
+# Gradle / Kotlin 构建产物
+.gradle/
+.kotlin/
+build/
+
+# 本机 SDK 路径
+local.properties
+
+# IDE
+.idea/
+*.iml
+
+# Claude
+.claude/
+
+# 头脑风暴 mockup 与执行计划工作区
+.superpowers/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Depth Anything V2 ONNX 模型 —— 约 100MB，不进仓库
+# 就是桌面项目根目录的 depth_anything_v2_small_ir9.onnx，
+# 复制到 app/src/main/assets/models/depth_anything_v2_small.onnx 即可
+*.onnx
