@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 根布局背景和页签栏同色（ink），padding 由 MainActivity 按系统栏 inset 设置 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0d0d1a">
+    android:background="@color/ink">
 
     <WebView
         android:id="@+id/webview"

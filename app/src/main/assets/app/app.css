@@ -1,0 +1,170 @@
+/* ============================================================================
+ * app.css — 主界面布局（颜色和基础控件在 ui/tokens.css）
+ * 结构：上面是三个页面（各自滚动），下面是页签栏；系统栏的避让由原生层的 padding 处理
+ * ============================================================================ */
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 var(--font);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+h1, h2, p { margin: 0; }
+
+/* ---------- 页面 ---------- */
+.pages {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+.page {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px 16px 24px;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    height: 52px;
+    margin-bottom: 4px;
+}
+.topbar h1 { font-size: 20px; font-weight: 600; }
+
+/* ---------- 页签栏 ---------- */
+.tabbar {
+    flex-shrink: 0;
+    display: flex;
+    height: 62px;
+    padding-bottom: 4px;
+    background: var(--ink);
+    border-top: 1px solid var(--line);
+}
+.tabbar button {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    border: 0;
+    background: none;
+    color: var(--text-3);
+    font: inherit;
+    font-size: 11px;
+}
+.tabbar .pill {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 28px;
+    border-radius: 999px;
+    transition: background 0.15s;
+}
+.tabbar svg.i { width: 18px; height: 18px; }
+.tabbar button.on { color: var(--accent); }
+.tabbar button.on .pill { background: var(--accent-soft); }
+
+/* ---------- 卡片、分组、表单行 ---------- */
+.card {
+    margin-bottom: 14px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+}
+.group-title {
+    margin: 18px 2px 8px;
+    color: var(--text-2);
+    font-size: 13px;
+    font-weight: 600;
+}
+.divider { height: 1px; margin: 14px -14px; background: var(--line); }
+
+.field + .field { margin-top: 16px; }
+.field-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+.field-head label { font-weight: 500; }
+.field-head .val { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+.note { margin-top: 4px; color: var(--text-3); font-size: 12px; }
+.ends { display: flex; justify-content: space-between; color: var(--text-3); font-size: 11px; }
+
+.btn.block { width: 100%; }
+.btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 16px 0 10px;
+}
+
+/* 设置页的列表行 */
+.list {
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+}
+.row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+}
+.row + .row { border-top: 1px solid var(--line); }
+.row .ic {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--raised);
+    color: var(--text-2);
+}
+.row .txt { flex: 1; min-width: 0; }
+.row .t { font-weight: 500; }
+.row .s { color: var(--text-3); font-size: 12px; }
+
+/* ---------- 提示条 ---------- */
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 76px;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100% - 32px);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    opacity: 0;
+    transform: translate(-50%, 8px);
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.ok svg.i { color: var(--success); }
+.toast.error svg.i { color: var(--danger); }
+.toast.info svg.i { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+    .toast, .tabbar .pill { transition: none; }
+}

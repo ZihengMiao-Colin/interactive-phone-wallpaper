@@ -8,10 +8,14 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.view.View
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.wallpaper.live3d.config.ConfigManager
 import com.wallpaper.live3d.ui.AppBridge
 import com.wallpaper.live3d.ui.WebViewSetup
@@ -57,6 +61,21 @@ class MainActivity : AppCompatActivity() {
         sensorHelper = SensorHelper(this, config)
 
         webView = findViewById(R.id.webview)
+
+        // 全面屏：内容画到系统栏下面，根布局按系统栏和刘海留出 padding（露出的是 --ink 底色）
+        val root = findViewById<View>(R.id.root)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.getInsetsController(window, root).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
+        // 页面加载前的底色和页面一致，避免白屏闪一下
+        webView.setBackgroundColor(0xFF10161E.toInt())
 
         // 统一 WebView 配置 (含 WebViewAssetLoader)
         WebViewSetup.apply(this, webView)

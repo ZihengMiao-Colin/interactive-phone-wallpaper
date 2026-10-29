@@ -4,112 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>互动3D壁纸</title>
-    <link rel="stylesheet" href="app_style.css">
+    <link rel="stylesheet" href="../ui/tokens.css">
+    <link rel="stylesheet" href="app.css">
+</head>
 <body>
 
-    <!-- ====== 图片裁剪界面 (默认隐藏) ====== -->
-    <div id="crop-overlay" style="display:none;">
-        <div id="crop-header">
-            <button id="btn-crop-cancel">取消</button>
-            <span id="crop-title">拖动调整裁剪范围</span>
-            <button id="btn-crop-confirm" class="primary">确认裁剪</button>
-        </div>
-        <div id="crop-area">
-            <img id="crop-image" src="" alt="裁剪图片">
-            <!-- 四个半透明遮罩 (围绕裁剪框) -->
-            <div id="crop-mask-top"></div>
-            <div id="crop-mask-bottom"></div>
-            <div id="crop-mask-left"></div>
-            <div id="crop-mask-right"></div>
-            <!-- 裁剪框本体 (九宫格辅助线 + 四角手柄) -->
-            <div id="crop-box">
-                <div class="crop-guide crop-guide-h1"></div>
-                <div class="crop-guide crop-guide-h2"></div>
-                <div class="crop-guide crop-guide-v1"></div>
-                <div class="crop-guide crop-guide-v2"></div>
-                <!-- 四角拖拽手柄 -->
-                <div class="crop-handle crop-handle-tl" data-handle="tl"></div>
-                <div class="crop-handle crop-handle-tr" data-handle="tr"></div>
-                <div class="crop-handle crop-handle-bl" data-handle="bl"></div>
-                <div class="crop-handle crop-handle-br" data-handle="br"></div>
-            </div>
-        </div>
-        <div id="crop-hint">拖动调整位置 · 捏合缩放大小 · 比例已锁定为屏幕尺寸</div>
-    </div>
+    <main class="pages">
+        <!-- ====== 壁纸 ====== -->
+        <section class="page" data-page="wallpaper" aria-label="壁纸">
+            <header class="topbar"><h1>互动 3D 壁纸</h1></header>
+        </section>
 
-    <!-- ====== 主界面内容 ====== -->
-    <div id="main-content">
+        <!-- ====== 视差 ====== -->
+        <section class="page" data-page="parallax" aria-label="视差" hidden>
+            <header class="topbar"><h1>视差</h1></header>
+        </section>
 
-    <!-- 顶部导航 -->
-    <div id="header">
-        <h1>互动3D壁纸</h1>
-        <p id="platform-hint"></p>
-    </div>
+        <!-- ====== 设置 ====== -->
+        <section class="page" data-page="system" aria-label="设置" hidden>
+            <header class="topbar"><h1>设置</h1></header>
+        </section>
+    </main>
 
-    <!-- 预览区域 -->
-    <div id="preview-container">
-        <canvas id="preview-canvas"></canvas>
-        <div id="preview-placeholder">
-            <div id="placeholder-icon">&#x1F5BC;</div>
-            <p>选择一张图片开始</p>
-        </div>
-    </div>
+    <nav class="tabbar" role="tablist">
+        <button type="button" data-tab="wallpaper" role="tab"><span class="pill"><svg class="i"><use href="#i-image"/></svg></span>壁纸</button>
+        <button type="button" data-tab="parallax" role="tab"><span class="pill"><svg class="i"><use href="#i-layers"/></svg></span>视差</button>
+        <button type="button" data-tab="system" role="tab"><span class="pill"><svg class="i"><use href="#i-settings"/></svg></span>设置</button>
+    </nav>
 
-    <!-- 图片信息 -->
-    <div id="image-info">未选择图片</div>
-
-    <!-- 参数调整 -->
-    <div class="section">
-        <div class="section-title">视差参数</div>
-        <div class="row">
-            <label>视差强度</label>
-            <span class="value" id="parallax-value">15</span>
-            <input type="range" id="parallax-strength" min="5" max="100" value="15" step="1">
-        </div>
-        <div class="row">
-            <label>平滑度</label>
-            <span class="value" id="smoothness-value">0.05</span>
-            <input type="range" id="smoothness" min="1" max="30" value="5" step="0.5">
-        </div>
-        <div class="row">
-            <label>陀螺仪死区</label>
-            <span class="value" id="deadzone-value">3.0°</span>
-            <input type="range" id="deadzone" min="0" max="10" value="3" step="0.5">
-        </div>
-        <div class="row">
-            <label>最大倾斜角</label>
-            <span class="value" id="maxtilt-value">30°</span>
-            <input type="range" id="maxtilt" min="10" max="60" value="30" step="1">
-        </div>
-    </div>
-
-    <!-- 操作按钮 -->
-    <div class="section">
-        <div class="section-title">操作</div>
-        <button id="btn-select-image" class="primary">选择壁纸图片</button>
-        <button id="btn-generate-depth" disabled>生成深度图 (需要先选择图片)</button>
-        <button id="btn-set-wallpaper" class="primary" disabled>设为系统壁纸</button>
-        <div id="depth-progress" style="display:none;">
-            <div class="progress-bar"><div class="progress-fill"></div></div>
-            <span id="depth-progress-text">处理中...</span>
-        </div>
-    </div>
-
-    <!-- MIUI / 系统适配 -->
-    <div class="section" id="section-system">
-        <div class="section-title">系统适配</div>
-        <button id="btn-battery-opt" class="danger">关闭电池优化 (防杀进程)</button>
-        <div id="miui-hint" style="display:none;">
-            <p class="hint-text">
-                &#x26A0;&#xFE0F; <strong>小米/MIUI 用户提示：</strong><br>
-                如果锁屏壁纸无法生效，请在系统"个性主题"中先应用任意一个系统动态壁纸，
-                然后重新设置本应用即可覆盖。
-            </p>
-        </div>
-    </div>
-
-    </div>
-    <!-- #main-content 结束 -->
+    <div id="toast" class="toast glass" role="status" hidden></div>
 
     <!-- Pixi.js -->
     <script src="../wallpaper/pixi.min.js"></script>
@@ -120,10 +43,15 @@
     <script src="../shared/parallax-math.js"></script>
     <script src="../shared/shaders.js"></script>
     <script src="../shared/frame-pacing.js"></script>
+    <script src="../shared/config-sync.js"></script>
     <script src="../shared/core_engine.js"></script>
 
-    <!-- 主界面逻辑 -->
-    <script src="app_ui.js"></script>
+    <!-- 界面基础 -->
+    <script src="../ui/icons.js"></script>
+    <script src="bridge.js"></script>
+    <script src="controls.js"></script>
+    <script src="shell.js"></script>
+    <script src="main.js"></script>
 
 </body>
 </html>
