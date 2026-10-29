@@ -51,12 +51,83 @@
 
         <!-- ====== 视差 ====== -->
         <section class="page" data-page="parallax" aria-label="视差" hidden>
-            <header class="topbar"><h1>视差</h1></header>
+            <header class="topbar">
+                <h1>视差</h1>
+                <button type="button" class="btn ghost sm" id="px-reset"><svg class="i"><use href="#i-rotate-ccw"/></svg>恢复推荐值</button>
+            </header>
+
+            <div class="preview small" id="preview-small">
+                <div class="hint">倾斜手机，或按住拖动预览</div>
+                <div class="veil"><span>生成深度图后可以预览视差</span></div>
+                <div class="empty-state"><svg class="i"><use href="#i-image-plus"/></svg><span>先在"壁纸"页选一张图片</span></div>
+            </div>
+
+            <h2 class="group-title">画面</h2>
+            <div class="card">
+                <div class="field">
+                    <div class="field-head"><label for="px-strength">视差强度</label><span class="val" id="px-strength-val"></span></div>
+                    <input type="range" id="px-strength" min="5" max="100" step="1">
+                    <p class="note">倾斜时画面移动的幅度</p>
+                </div>
+                <div class="field">
+                    <div class="field-head"><label for="px-smooth">跟手程度</label><span class="val" id="px-smooth-val"></span></div>
+                    <input type="range" id="px-smooth" min="1" max="30" step="1">
+                    <p class="note">越小越平滑，越大越跟手</p>
+                </div>
+                <div class="field">
+                    <div class="field-head"><label for="px-focus">对焦深度</label><span class="val" id="px-focus-val"></span></div>
+                    <input type="range" class="depth" id="px-focus" min="0" max="100" step="1">
+                    <div class="ends"><span>远</span><span>近</span></div>
+                    <p class="note">这个深度的物体保持不动；放在主体上最不容易撕裂</p>
+                </div>
+            </div>
+
+            <h2 class="group-title">陀螺仪</h2>
+            <div class="card">
+                <div class="field">
+                    <div class="field-head"><label for="px-deadzone">静止范围</label><span class="val" id="px-deadzone-val"></span></div>
+                    <input type="range" id="px-deadzone" min="0" max="10" step="0.5">
+                    <p class="note">倾斜小于这个角度时画面不动，防止手抖</p>
+                </div>
+                <div class="field">
+                    <div class="field-head"><label for="px-maxtilt">最大倾斜</label><span class="val" id="px-maxtilt-val"></span></div>
+                    <input type="range" id="px-maxtilt" min="10" max="60" step="1">
+                    <p class="note">倾斜到这个角度时视差达到最大</p>
+                </div>
+            </div>
         </section>
 
         <!-- ====== 设置 ====== -->
         <section class="page" data-page="system" aria-label="设置" hidden>
             <header class="topbar"><h1>设置</h1></header>
+
+            <h2 class="group-title">动态壁纸</h2>
+            <div class="list">
+                <div class="row">
+                    <span class="ic"><svg class="i"><use href="#i-smartphone"/></svg></span>
+                    <div class="txt"><div class="t">桌面壁纸</div><div class="s" id="sys-wp-text"></div></div>
+                    <button type="button" class="btn sm" id="sys-wp-btn"></button>
+                </div>
+            </div>
+
+            <h2 class="group-title">后台运行</h2>
+            <div class="list">
+                <div class="row">
+                    <span class="ic"><svg class="i"><use href="#i-battery"/></svg></span>
+                    <div class="txt"><div class="t">电池优化</div><div class="s" id="sys-batt-text"></div></div>
+                    <button type="button" class="btn sm" id="sys-batt-btn">去关闭</button>
+                </div>
+            </div>
+            <div class="warn-card" id="sys-miui" hidden>
+                <svg class="i"><use href="#i-triangle-alert"/></svg>
+                <p><b>小米 / HyperOS：</b>如果锁屏壁纸不生效，先在"个性主题"里应用任意一个系统动态壁纸，再回来重新设置本应用。</p>
+            </div>
+
+            <h2 class="group-title">关于</h2>
+            <div class="list">
+                <div class="kv"><span>版本</span><span id="sys-version"></span></div>
+                <div class="kv"><span>设备</span><span id="sys-device"></span></div>
+            </div>
         </section>
     </main>
 
@@ -112,6 +183,8 @@
 
     <!-- 页面 -->
     <script src="wallpaper-page.js"></script>
+    <script src="parallax-page.js"></script>
+    <script src="system-page.js"></script>
 
 </body>
 </html>

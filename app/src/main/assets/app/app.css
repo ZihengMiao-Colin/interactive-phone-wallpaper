@@ -142,6 +142,31 @@ h1, h2, p { margin: 0; }
 .row .t { font-weight: 500; }
 .row .s { color: var(--text-3); font-size: 12px; }
 
+/* 小米提示、关于 */
+.warn-card {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255, 204, 106, 0.22);
+    border-radius: var(--r-lg);
+    background: rgba(255, 204, 106, 0.07);
+    color: var(--text-2);
+    font-size: 12px;
+}
+.warn-card svg.i { margin-top: 1px; color: var(--warn); }
+.warn-card b { color: var(--warn); font-weight: 600; }
+.kv {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    font-size: 13px;
+}
+.kv + .kv { border-top: 1px solid var(--line); }
+.kv span:first-child { flex-shrink: 0; color: var(--text-2); }
+.kv span:last-child { text-align: right; }
+
 /* ---------- 顶栏状态胶囊 ---------- */
 .status-chip { height: 24px; padding: 0 10px; font-size: 12px; }
 .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
