@@ -68,7 +68,7 @@ dev/                             浏览器开发预览用的示例图和深度�
 docs/superpowers/                设计文档和实施计划
 ```
 
-**和桌面同步的文件**（文件头有来源注释，改一边要改另一边）：`shared/parallax-math.js`、`frame-pacing.js`、`config-sync.js`（逐字节复制，只多一行注释）、`shared/shaders.js`（节选）、`DepthProcessing.kt`（移植，测试里的 Pillow 对照数据也来自桌面）。`ui/tokens.css`、`ui/icons.js` 是在桌面版基础上改的。
+**和桌面同步的文件**（文件头有来源注释，改一边要改另一边）：`shared/parallax-math.js`、`frame-pacing.js`、`config-sync.js`（内容逐字复制，只多一行注释；桌面有的文件是 CRLF，核对用 `diff --strip-trailing-cr`）、`shared/shaders.js`（节选）、`DepthProcessing.kt`（移植，测试里的 Pillow 对照数据也来自桌面）。`ui/tokens.css`、`ui/icons.js` 是在桌面版基础上改的。
 
 ## 4. 核心流程
 
@@ -86,8 +86,9 @@ docs/superpowers/                设计文档和实施计划
 - 空闲停帧 + 帧率上限 60 + 传感器去抖。
 - 调参数、换壁纸后桌面壁纸实时同步；应用壁纸直达本应用的动态壁纸预览页。
 - 删掉了不再使用的深度缓存索引（`DepthCacheManager`）。
+- 整分支审查后修了：静止范围 = 最大倾斜时算出 NaN（壁纸黑屏且满帧）、取消裁剪后预览空白、后台完成深度图时在后台重建渲染引擎、裁剪输出最长边限制 4096 和占位深度图缩小、在系统预览页退出后壁纸页按钮可直接重新设置。
 
-验证：单元测试 31 个全过（DepthProcessing 对照桌面 Pillow 数据、倾斜归一化和去抖、配置钳位、文件清理）；浏览器里走过主界面全部流程和停帧逻辑。**真机上还没验证**，检查清单：
+验证：单元测试 32 个全过（DepthProcessing 对照桌面 Pillow 数据、倾斜归一化和去抖、配置钳位、文件清理）；浏览器里走过主界面全部流程和停帧逻辑。**真机上还没验证**，检查清单：
 
 1. 同一张图用新算法重新生成后，前后左右倾斜：主体轮廓不撕，没有明显拉丝（和旧版对比）。
 2. 陀螺仪方向和手感跟旧版一样（方向是按旧 DisplacementFilter 推导的）。
@@ -103,4 +104,6 @@ docs/superpowers/                设计文档和实施计划
 - 模型在 assets 和 `filesDir/models/` 各存一份（每次初始化还会重新复制），首次生成慢、多占约 100MB。
 - `assets/app/transformers.min.js`（约 900KB）没有被引用，可以删。
 - 默认视差强度 10、去抖阈值 0.01、桌面滑动偏移权重 0.33 是按桌面和推算定的，真机手感不对再调。
+- 审查时记下、没修的小问题：`SensorHelper.start()` 不重置去抖基准（壁纸页重新加载后手机静止时画面停在中间，动一下就好）；`CoreEngine.load` 没有序号保护（极快连续换图可能显示旧图）；`resizeRgb8` 多复制一份 RGB；缺少后处理随机输入的桌面逐值对照测试；`wallpaper_render.js` 的 `setupTouchFallback` 是死代码；回前台时即使引擎还在也会重新上传纹理；裁剪框四角看起来能拖其实不能。
+- 旧代码就有、这轮没碰：选图在主线程复制（云端大图可能卡顿）；不支持 HEIC；没有处理 WebView 渲染进程崩溃（`onRenderProcessGone`）。
 - 悬浮窗权限相关的旧代码（`SYSTEM_ALERT_WINDOW`、`requestOverlayPermission`）界面上没有入口，没动。
