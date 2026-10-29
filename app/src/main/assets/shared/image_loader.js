@@ -50,14 +50,19 @@ window.ImageLoader = {
      * 当深度图缺失时使用。中性灰色 (RGB 128,128,128) 在 DisplacementFilter
      * 中表示"无位移"，因此整个画面不会产生视差效果。
      *
-     * @param {number} width - 应与背景图宽度一致
-     * @param {number} height - 应与背景图高度一致
+     * @param {number} width - 背景图宽度（只用来定比例，最长边缩到 256）
+     * @param {number} height - 背景图高度
      * @returns {HTMLImageElement}
      */
     createFallbackDepthImage: function(width, height) {
+        // 占位图几乎是平的灰，用小尺寸就够（纹理按 CLAMP + 线性插值拉伸），
+        // 不必按原图尺寸画一张几千像素的 canvas 再编码 PNG
+        var w = width || 1920;
+        var h = height || 1080;
+        var scale = Math.min(1, 256 / Math.max(w, h));
         var canvas = document.createElement('canvas');
-        canvas.width = width || 1920;
-        canvas.height = height || 1080;
+        canvas.width = Math.max(1, Math.round(w * scale));
+        canvas.height = Math.max(1, Math.round(h * scale));
         var ctx = canvas.getContext('2d');
 
         // 填充中性灰色 —— 位移滤镜中灰色 = 不偏移

@@ -10,6 +10,18 @@
 window.Cropper = (() => {
     const $ = (id) => document.getElementById(id);
 
+    /**
+     * 裁剪结果的最长边上限：手机拍的大图按原像素裁出来可能 3000×6500 以上，
+     * dataUrl 经过 JS 桥会占几十 MB，整张当纹理时还会超过老 GPU 的 4096 纹理上限（壁纸黑屏）。
+     */
+    const MAX_OUTPUT_SIDE = 4096;
+
+    /** 裁剪区域 w×h 输出成多大：最长边超过 maxSide 就等比缩小 */
+    function outputSize(w, h, maxSide = MAX_OUTPUT_SIDE) {
+        const scale = Math.min(1, maxSide / Math.max(w, h));
+        return [Math.max(1, Math.round(w * scale)), Math.max(1, Math.round(h * scale))];
+    }
+
     const s = {
         imgNaturalW: 0,   // 图片原始宽
         imgNaturalH: 0,   // 图片原始高
@@ -159,7 +171,7 @@ window.Cropper = (() => {
         if (resolve) resolve(result);
     }
 
-    /** 把裁剪区域按原图像素画到 canvas，导出 JPEG */
+    /** 把裁剪区域按原图像素画到 canvas（最长边超过上限时等比缩小），导出 JPEG */
     function confirm() {
         const img = $('crop-image');
         if (!img.complete || !s.imgDisplayW) return;
@@ -169,10 +181,13 @@ window.Cropper = (() => {
         const y = Math.max(0, Math.round(s.cropY * sy));
         const w = Math.min(s.imgNaturalW - x, Math.round(s.cropW * sx));
         const h = Math.min(s.imgNaturalH - y, Math.round(s.cropH * sy));
+        const [ow, oh] = outputSize(w, h);
         const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        canvas.getContext('2d').drawImage(img, x, y, w, h, 0, 0, w, h);
+        canvas.width = ow;
+        canvas.height = oh;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, x, y, w, h, 0, 0, ow, oh);
         finish(canvas.toDataURL('image/jpeg', 0.92));
     }
 
@@ -209,5 +224,5 @@ window.Cropper = (() => {
         });
     }
 
-    return { open, isOpen };
+    return { open, isOpen, outputSize };
 })();

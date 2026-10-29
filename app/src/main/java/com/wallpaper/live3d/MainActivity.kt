@@ -113,9 +113,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        // 通知 JS 销毁 Pixi.js 实例，释放 WebGL 上下文
+        // 通知页面进了后台（之后不再自己建引擎），再销毁 Pixi.js 实例，释放 WebGL 上下文
         webView.evaluateJavascript(
-            "if(window.CoreEngine) CoreEngine.destroy();", null
+            "if(window.onAppStop) onAppStop(); if(window.CoreEngine) CoreEngine.destroy();", null
         )
     }
 

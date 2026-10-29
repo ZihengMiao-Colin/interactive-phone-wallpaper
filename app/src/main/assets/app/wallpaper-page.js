@@ -66,18 +66,25 @@
     function render() {
         const sel = App.state.selected;
         const applied = App.isSelectedApplied();
+        const active = App.state.status.wallpaperActive;
         const busy = !!generating;
 
         renderStatusChip();
         renderDepthStatus();
         $('wp-res').textContent = resolution;
-        $('wp-in-use').hidden = !applied;
+        // 配置里是这张、并且本应用确实是桌面壁纸，才算"使用中"
+        $('wp-in-use').hidden = !(applied && active);
         $('wp-view').hidden = !sel.depth;
 
         $('wp-pick').disabled = busy;
         $('wp-blur').disabled = busy;
         setButton($('wp-generate'), busy ? '生成中…' : (sel.depth ? '重新生成' : '生成深度图'), busy || !sel.image);
-        setButton($('wp-apply'), applied ? '正在使用这张' : '应用壁纸', busy || !sel.depth || applied);
+        if (applied && !active) {
+            // 应用过但在系统预览页退出了：让用户直接在这里重新设
+            setButton($('wp-apply'), '设为桌面壁纸', busy);
+        } else {
+            setButton($('wp-apply'), applied ? '正在使用这张' : '应用壁纸', busy || !sel.depth || applied);
+        }
     }
 
     // ==================== 预览 ====================
@@ -102,19 +109,30 @@
 
     // ==================== 选图 ====================
 
+    /**
+     * 打开图片选择器时 onStop 已经销毁了引擎，回来时又因为裁剪界面开着跳过了重建；
+     * 没走"确认"这条路（取消、图片打不开、保存失败）就在这里把原来的预览建回来。
+     */
+    function ensurePreview() {
+        if (!CoreEngine.getApp()) showSelected();
+    }
+
     window.onImageSelected = async (pickedName, error) => {
         if (!pickedName) {
             Shell.toast(error || '图片保存失败', 'error');
+            ensurePreview();
             return;
         }
         const dataUrl = await Cropper.open(pickedName, screenAspect());
         if (!dataUrl) {
             Bridge.discardPickedImage(pickedName);
+            ensurePreview();
             return;
         }
         const name = Bridge.saveCroppedImage(pickedName, dataUrl);
         if (!name) {
             Shell.toast('保存裁剪结果失败', 'error');
+            ensurePreview();
             return;
         }
         App.state.selected = { image: name, depth: '' };
@@ -169,6 +187,11 @@
     function apply() {
         const sel = App.state.selected;
         if (!sel.image || !sel.depth || generating) return;
+        if (App.isSelectedApplied() && !App.state.status.wallpaperActive) {
+            // 配置已经是这张，只差在系统里设成动态壁纸
+            Bridge.openLiveWallpaperPicker();
+            return;
+        }
         const active = Bridge.applyWallpaper(sel.image, sel.depth);
         App.state.applied = { ...sel };
         App.emit('applied');
@@ -206,7 +229,7 @@
             $('wp-generate').addEventListener('click', generate);
             $('wp-apply').addEventListener('click', apply);
 
-            App.on('status', renderStatusChip);
+            App.on('status', render);
             // 回到前台：onStop 时引擎已经销毁，裁剪中就先不动（确认后会重新显示）
             App.on('resume', () => {
                 if (!Cropper.isOpen()) showSelected();

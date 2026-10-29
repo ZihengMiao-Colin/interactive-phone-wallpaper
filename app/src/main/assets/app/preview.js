@@ -19,6 +19,13 @@ window.Preview = (() => {
     let touching = false;
     let tilt = [0, 0];
     let hintTimer = null;
+    /**
+     * App 在后台（onStop 已经销毁引擎）：show() 只记下要显示什么，不建引擎，
+     * 不然后台完成的深度图会在后台重新占一份显存；回前台时再建。
+     */
+    let suspended = false;
+    App.on('stop', () => { suspended = true; });
+    App.on('resume', () => { suspended = false; });
 
     function hasDepth() {
         return !!shown.depth;
@@ -87,6 +94,7 @@ window.Preview = (() => {
             CoreEngine.destroy();
             return null;
         }
+        if (suspended) return null;
         const bg = Bridge.localUrl('wallpapers', shown.image);
         const dep = shown.depth ? Bridge.localUrl('depth_cache', shown.depth) : null;
         if (CoreEngine.getApp()) await CoreEngine.reloadImages(bg, dep);

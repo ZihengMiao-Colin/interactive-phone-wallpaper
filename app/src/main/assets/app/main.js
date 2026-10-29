@@ -7,7 +7,7 @@
  * 状态：
  *   applied  —— 桌面壁纸正在用的（配置里的 currentImage / depthFile，只有"应用壁纸"才改）
  *   selected —— 界面里选中的（选图、裁剪、生成深度图只改它）
- * 事件：'selected' | 'applied' | 'status' | 'config' | 'resume'（回到前台）
+ * 事件：'selected' | 'applied' | 'status' | 'config' | 'resume'（回到前台）| 'stop'（进了后台）
  */
 
 'use strict';
@@ -62,6 +62,9 @@ window.App = (() => {
         refreshStatus();
         emit('resume');
     };
+
+    // MainActivity.onStop 调用（紧接着会销毁渲染引擎）：App 进了后台
+    window.onAppStop = () => emit('stop');
 
     document.addEventListener('DOMContentLoaded', () => {
         state.config = Bridge.getConfig();

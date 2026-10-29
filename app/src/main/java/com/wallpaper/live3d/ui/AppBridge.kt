@@ -114,7 +114,8 @@ class AppBridge(
             discardPickedImage(pickedName)
             android.util.Log.d("[AppBridge]", "Cropped image saved: $name (${bytes.size} bytes)")
             name
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            // 大图的 base64 很大，OutOfMemoryError 也要接住，界面提示保存失败而不是崩溃
             android.util.Log.e("[AppBridge]", "saveCroppedImage error", e)
             ""
         }

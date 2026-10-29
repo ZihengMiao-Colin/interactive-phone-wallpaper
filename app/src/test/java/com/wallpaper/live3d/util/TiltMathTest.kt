@@ -31,6 +31,15 @@ class TiltMathTest {
     }
 
     @Test
+    fun normalize_deadZoneEqualsMaxTilt_isFinite() {
+        // 界面允许静止范围 = 最大倾斜 = 10°：超过就直接饱和，不能除以 0 得到 NaN
+        val out = TiltMath.normalize(gs(20.0), base + gs(20.0), 10.0, 10.0)
+        assertEquals(1f, out[0], 1e-4f)
+        assertEquals(-1f, out[1], 1e-4f)
+        assertEquals(0f, TiltMath.normalize(gs(5.0), base, 10.0, 10.0)[0], 1e-4f)
+    }
+
+    @Test
     fun normalize_forwardTiltIsNegativeY() {
         assertEquals(-1f, TiltMath.normalize(0f, base + gs(30.0), 3.0, 30.0)[1], 1e-4f)
     }

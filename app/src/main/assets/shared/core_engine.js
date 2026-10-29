@@ -309,6 +309,8 @@ window.CoreEngine = (() => {
          * @param {number} y - 归一化的 Y 轴倾斜 [-1, 1]
          */
         setSensorTarget(x, y) {
+            // NaN 进来以后插值永远是 NaN：画面坏掉，停帧判断也永远不成立
+            if (!Number.isFinite(x) || !Number.isFinite(y)) return;
             if (x === targetX && y === targetY) return;
             targetX = x;
             targetY = y;

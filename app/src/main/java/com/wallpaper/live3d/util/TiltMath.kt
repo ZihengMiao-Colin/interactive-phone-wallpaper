@@ -37,6 +37,8 @@ object TiltMath {
             val absVal = abs(value)
             if (absVal < deadG) return 0f
             val sign = if (value > 0) 1f else -1f
+            // 静止范围 ≥ 最大倾斜（界面允许两者都是 10°）：一出静止范围就饱和，不能除以 0
+            if (maxG - deadG < 1e-6f) return sign
             val clamped = min(absVal, maxG)
             return sign * (clamped - deadG) / (maxG - deadG)
         }
