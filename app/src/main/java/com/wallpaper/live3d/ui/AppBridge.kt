@@ -1,15 +1,15 @@
 package com.wallpaper.live3d.ui
 
-import android.content.Context
 import android.net.Uri
 import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import com.wallpaper.live3d.BuildConfig
 import com.wallpaper.live3d.MainActivity
 import com.wallpaper.live3d.config.ConfigManager
-import com.wallpaper.live3d.depth.DepthCacheManager
 import com.wallpaper.live3d.depth.DepthEstimator
 import com.wallpaper.live3d.util.FileUtils
+import com.wallpaper.live3d.util.WallpaperFiles
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,29 +21,40 @@ import java.io.File
  * AppBridge — 主界面 WebView 的 @JavascriptInterface 桥接
  * ============================================================================
  *
- * 暴露为 "AppBridge" 给 app_ui.js 调用。
+ * 暴露为 "AppBridge" 给 assets/app/bridge.js 调用。
  *
- * 包含 WallpaperBridge 的所有配置方法 + UI 特有方法:
- *   - 图片选择 (openImagePicker → ActivityResultContract)
- *   - 深度图管理 (save/has depth map)
- *   - 设置壁纸 (setAsWallpaper)
- *   - 系统适配 (电池优化、悬浮窗权限、平台检测)
+ * 选择和应用分开：
+ *   - 选图、裁剪、生成深度图都只产生新文件（文件名带时间戳），不写配置；
+ *   - 只有 applyWallpaper 写 currentImage / depthFile，壁纸服务监听到后马上换。
  *
- * 关键原则:
- *   - 不传输 Base64 图片数据 (图片通过 WebViewAssetLoader URL 加载)
- *   - saveDepthMap 接收 Base64 但仅在 Kotlin 侧解码写入文件
+ * Kotlin → JS 回调（调用前都判断函数是否存在）：
+ *   window.onImageSelected(pickedName)
+ *   window.onDepthProgress(percent, text)
+ *   window.onAIDepthReady(fileName | null, error | null)
+ *   window.onSensorTilt(x, y) / window.onAppResume()   ← 由 MainActivity 推送
  */
 class AppBridge(
     private val activity: MainActivity,
     private val webView: WebView
 ) {
     private val configManager = ConfigManager(activity)
-    private val depthCacheManager = DepthCacheManager(activity)
     private val depthEstimator = DepthEstimator(activity)
     private val scope = CoroutineScope(Dispatchers.Main)
 
+    private val wallpapersDir get() = File(activity.filesDir, "wallpapers")
+    private val depthDir get() = File(activity.filesDir, "depth_cache")
+
+    /** JS 传来的文件名只允许是单纯的文件名，不能带路径跳出目录 */
+    private fun safeName(name: String): String? =
+        name.takeIf { it.isNotEmpty() && !it.contains('/') && !it.contains('\\') && !it.startsWith(".") }
+
+    private fun callJs(script: String) {
+        activity.runOnUiThread { webView.evaluateJavascript(script, null) }
+    }
+
     // ==================== 配置 ====================
 
+    /** 参数 + currentImage + depthFile */
     @JavascriptInterface
     fun getConfig(): String {
         return configManager.getAll().toString()
@@ -59,157 +70,88 @@ class AppBridge(
         }
     }
 
-    // ==================== 图片选择 ====================
+    // ==================== 选图与裁剪 ====================
 
-    /**
-     * 打开系统文件选择器。
-     * 结果通过 ActivityResultContract 回调 → onImageSelected → JS callback
-     */
+    /** 打开系统图片选择器，结果 → onImageSelected → window.onImageSelected(pickedName) */
     @JavascriptInterface
     fun openImagePicker() {
-        activity.runOnUiThread {
-            activity.openImagePicker()
-        }
+        activity.runOnUiThread { activity.openImagePicker() }
     }
 
-    /**
-     * 用户选择图片后由 MainActivity 调用。
-     * 将图片复制到内部存储，然后通知 JS 更新预览。
-     */
+    /** 用户选了图片：复制成 pick_<时间戳>.<扩展名>，交给 JS 裁剪 */
     fun onImageSelected(uri: Uri) {
-        val fileName = FileUtils.getFileName(activity, uri)
-        val targetDir = java.io.File(activity.filesDir, "wallpapers")
-        if (!targetDir.exists()) targetDir.mkdirs()
-
-        val targetFile = java.io.File(targetDir, fileName)
+        val ext = FileUtils.getFileName(activity, uri)
+            .substringAfterLast('.', "jpg").lowercase()
+            .takeIf { it.isNotEmpty() && it.length <= 5 && it.all(Char::isLetterOrDigit) } ?: "jpg"
+        val name = WallpaperFiles.newName("pick", ext)
         try {
+            wallpapersDir.mkdirs()
             activity.contentResolver.openInputStream(uri)?.use { input ->
-                targetFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-            android.util.Log.d("[AppBridge]", "Image copied to: ${targetFile.absolutePath}")
-
-            // 通知 JS (仅传文件名，图片通过 WebViewAssetLoader URL 加载)
-            webView.evaluateJavascript(
-                "window.onImageSelected?.('$fileName', '')", null
-            )
+                File(wallpapersDir, name).outputStream().use { input.copyTo(it) }
+            } ?: throw IllegalStateException("无法打开图片")
+            webView.evaluateJavascript("window.onImageSelected && window.onImageSelected(${JSONObject.quote(name)})", null)
         } catch (e: Exception) {
             android.util.Log.e("[AppBridge]", "Failed to copy image", e)
+            File(wallpapersDir, name).delete()
             webView.evaluateJavascript(
-                "alert('图片保存失败: ${e.message?.replace("'", "\\'")}')", null
+                "window.onImageSelected && window.onImageSelected(null, ${JSONObject.quote(e.message ?: "图片保存失败")})", null
             )
         }
     }
 
-    // ==================== 图片裁剪保存 ====================
-
     /**
-     * 保存裁剪后的壁纸图片。
-     * 由 JS 裁剪确认后调用，Base64 Data URL 仅在 Kotlin 侧解码写入文件。
-     *
-     * @param originalFileName 原始文件名 (用于生成裁剪后的文件名)
-     * @param croppedDataUrl   裁剪后的 JPEG Base64 Data URL
-     * @return 保存后的文件名 (如 "cropped_image_123.jpg")，失败返回空字符串
+     * 保存裁剪结果（JPEG Data URL）为 wp_<时间戳>.jpg，删掉 pick 文件。不写配置。
+     * @return 新文件名，失败返回空字符串
      */
     @JavascriptInterface
-    fun saveCroppedImage(originalFileName: String, croppedDataUrl: String): String {
+    fun saveCroppedImage(pickedName: String, croppedDataUrl: String): String {
         return try {
-            val base64Data = if (croppedDataUrl.contains("base64,")) {
-                croppedDataUrl.substringAfter("base64,")
-            } else {
-                croppedDataUrl
-            }
-            val bytes = Base64.decode(base64Data, Base64.DEFAULT)
-
-            // 生成裁剪后的文件名: cropped_<原始文件名>
-            val croppedFileName = "cropped_$originalFileName"
-            val targetDir = java.io.File(activity.filesDir, "wallpapers")
-            if (!targetDir.exists()) targetDir.mkdirs()
-            val targetFile = java.io.File(targetDir, croppedFileName)
-            targetFile.writeBytes(bytes)
-
-            // 更新配置：裁剪后的图片成为当前壁纸
-            configManager.edit()
-                .putString(ConfigManager.KEY_CURRENT_IMAGE, croppedFileName)
-                .putString(ConfigManager.KEY_DEPTH_FILE, "")
-                .apply()
-
-            android.util.Log.d("[AppBridge]", "Cropped image saved: $croppedFileName (${bytes.size} bytes)")
-            croppedFileName
+            val base64 = croppedDataUrl.substringAfter("base64,", croppedDataUrl)
+            val bytes = Base64.decode(base64, Base64.DEFAULT)
+            val name = WallpaperFiles.newName("wp", "jpg")
+            wallpapersDir.mkdirs()
+            File(wallpapersDir, name).writeBytes(bytes)
+            discardPickedImage(pickedName)
+            android.util.Log.d("[AppBridge]", "Cropped image saved: $name (${bytes.size} bytes)")
+            name
         } catch (e: Exception) {
             android.util.Log.e("[AppBridge]", "saveCroppedImage error", e)
             ""
         }
     }
 
-    // ==================== 深度图管理 ====================
-
+    /** 取消裁剪（或裁剪完）时删掉选图时复制的 pick 文件 */
     @JavascriptInterface
-    fun hasDepthMap(imageName: String): Boolean {
-        return depthCacheManager.hasDepthMap(imageName)
+    fun discardPickedImage(pickedName: String) {
+        val name = safeName(pickedName) ?: return
+        if (name.startsWith("pick_")) File(wallpapersDir, name).delete()
     }
 
-    /**
-     * 保存生成的深度图到缓存。
-     * @param imageName 原始壁纸文件名
-     * @param depthDataUrl Base64 Data URL (仅在 Kotlin 侧解码，不传回 JS)
-     * @return 实际保存的深度图文件名 (如 "depth_1a2b3c4d.png")，失败返回空字符串
-     */
-    @JavascriptInterface
-    fun saveDepthMap(imageName: String, depthDataUrl: String): String {
-        return try {
-            val fileName = depthCacheManager.saveDepthMap(imageName, depthDataUrl)
-            android.util.Log.d("[AppBridge]", "Depth map saved for $imageName → $fileName")
-            fileName
-        } catch (e: Exception) {
-            android.util.Log.e("[AppBridge]", "saveDepthMap error", e)
-            ""
-        }
-    }
+    // ==================== 深度图 ====================
 
     /**
-     * 使用 Depth Anything V2 AI 模型生成深度图。
-     * 在后台线程执行 ONNX 推理，进度通过 window.onDepthProgress(percent, text) 通知，
+     * 使用 Depth Anything V2 AI 模型生成深度图（不写配置）。
+     * 进度通过 window.onDepthProgress(percent, text) 通知，
      * 完成后通过 window.onAIDepthReady(fileName, error) 通知。
-     *
-     * @param imageName 壁纸文件名
-     * @param blurRadius 边缘平滑半径（像素）
      */
     @JavascriptInterface
     fun generateAIDepthMap(imageName: String, blurRadius: Int) {
         android.util.Log.d("[AppBridge]", "generateAIDepthMap: $imageName (blur $blurRadius)")
         scope.launch {
             try {
-                val wallpapersDir = java.io.File(activity.filesDir, "wallpapers")
-                val imageFile = java.io.File(wallpapersDir, imageName)
-                if (!imageFile.exists()) {
-                    android.util.Log.e("[AppBridge]", "图片文件不存在: ${imageFile.absolutePath}")
+                val name = safeName(imageName)
+                val imageFile = name?.let { File(wallpapersDir, it) }
+                if (imageFile == null || !imageFile.exists()) {
                     fireAIDepthReady(null, "图片文件不存在")
                     return@launch
                 }
-
-                val cacheDir = java.io.File(activity.filesDir, "depth_cache")
-                val depthFileName = depthEstimator.estimateDepth(imageFile, cacheDir, blurRadius) { percent, text ->
-                    activity.runOnUiThread {
-                        webView.evaluateJavascript(
-                            "window.onDepthProgress && window.onDepthProgress($percent, ${JSONObject.quote(text)})", null
-                        )
-                    }
+                val depthFileName = depthEstimator.estimateDepth(imageFile, depthDir, blurRadius) { percent, text ->
+                    callJs("window.onDepthProgress && window.onDepthProgress($percent, ${JSONObject.quote(text)})")
                 }
-
                 if (depthFileName != null) {
-                    // 更新配置
-                    configManager.edit()
-                        .putString(ConfigManager.KEY_DEPTH_FILE, depthFileName)
-                        .apply()
-
-                    android.util.Log.d("[AppBridge]", "AI 深度图生成成功: $depthFileName")
                     fireAIDepthReady(depthFileName, null)
                 } else {
-                    val errMsg = depthEstimator.lastError ?: "ONNX 推理失败 (无详细错误)"
-                    android.util.Log.e("[AppBridge]", "AI 深度估计失败: $errMsg")
-                    fireAIDepthReady(null, errMsg)
+                    fireAIDepthReady(null, depthEstimator.lastError ?: "ONNX 推理失败 (无详细错误)")
                 }
             } catch (e: Exception) {
                 android.util.Log.e("[AppBridge]", "generateAIDepthMap 异常", e)
@@ -218,52 +160,40 @@ class AppBridge(
         }
     }
 
-    /**
-     * 安全地触发 JS 回调。使用 JSONObject.quote() 确保错误消息中的
-     * 特殊字符（\、换行、引号等）不会破坏 JavaScript 字符串语法。
-     */
+    /** 用 JSONObject.quote() 转义，错误消息里的特殊字符不会破坏 JS 语法 */
     private fun fireAIDepthReady(fileName: String?, error: String?) {
-        val js = buildString {
-            append("window.onAIDepthReady(")
-            if (fileName != null) {
-                append(JSONObject.quote(fileName))
-            } else {
-                append("null")
-            }
-            append(", ")
-            if (error != null) {
-                append(JSONObject.quote(error))
-            } else {
-                append("null")
-            }
-            append(")")
-        }
-        webView.evaluateJavascript(js, null)
+        val f = fileName?.let { JSONObject.quote(it) } ?: "null"
+        val e = error?.let { JSONObject.quote(it) } ?: "null"
+        callJs("window.onAIDepthReady && window.onAIDepthReady($f, $e)")
     }
+
+    // ==================== 应用壁纸 ====================
 
     /**
-     * 获取已缓存的深度图文件名 (用于构建 WebViewAssetLoader URL)。
-     * @param imageName 原始壁纸文件名
-     * @return 深度图文件名，无缓存则返回空字符串
+     * 写配置（壁纸服务监听到后马上换）。
+     * @return 本应用已是当前动态壁纸返回 true；否则打开本应用的动态壁纸预览页并返回 false
      */
     @JavascriptInterface
-    fun getDepthFileName(imageName: String): String {
-        return depthCacheManager.getDepthFileName(imageName) ?: ""
+    fun applyWallpaper(imageName: String, depthFile: String): Boolean {
+        val image = safeName(imageName) ?: return false
+        configManager.setWallpaper(image, safeName(depthFile) ?: "")
+        if (activity.isOurWallpaperActive()) return true
+        activity.runOnUiThread { activity.openLiveWallpaperPicker() }
+        return false
     }
 
-    // ==================== 设置壁纸 ====================
-
+    /** 跳到本应用的动态壁纸预览页（设置页"设为壁纸 / 重新设置"） */
     @JavascriptInterface
-    fun setAsWallpaper() {
-        activity.runOnUiThread {
-            try {
-                val intent = android.content.Intent(android.content.Intent.ACTION_SET_WALLPAPER)
-                activity.startActivity(android.content.Intent.createChooser(intent, "选择壁纸"))
-            } catch (e: Exception) {
-                android.util.Log.e("[AppBridge]", "setAsWallpaper error", e)
-            }
-        }
+    fun openLiveWallpaperPicker() {
+        activity.runOnUiThread { activity.openLiveWallpaperPicker() }
     }
+
+    /** {"wallpaperActive": Boolean, "batteryOptimizationIgnored": Boolean} */
+    @JavascriptInterface
+    fun getStatus(): String = JSONObject().apply {
+        put("wallpaperActive", activity.isOurWallpaperActive())
+        put("batteryOptimizationIgnored", activity.isIgnoringBatteryOptimizations())
+    }.toString()
 
     // ==================== 系统适配 ====================
 
@@ -283,7 +213,7 @@ class AppBridge(
 
     /**
      * 返回平台信息 JSON。
-     * JS 端用于 MIUI 检测、API 级别适配等。
+     * JS 端用于小米提示、预览比例、"关于"等。
      */
     @JavascriptInterface
     fun getPlatformInfo(): String {
@@ -295,8 +225,10 @@ class AppBridge(
 
         val info = JSONObject().apply {
             put("apiLevel", android.os.Build.VERSION.SDK_INT)
+            put("androidVersion", android.os.Build.VERSION.RELEASE)
             put("manufacturer", android.os.Build.MANUFACTURER)
             put("model", android.os.Build.MODEL)
+            put("versionName", BuildConfig.VERSION_NAME)
             put("screenWidth", displayMetrics.widthPixels)
             put("screenHeight", displayMetrics.heightPixels)
             put("hasOverlayPermission",

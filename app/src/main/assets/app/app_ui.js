@@ -159,10 +159,10 @@
 
         // 设为壁纸
         $('btn-set-wallpaper').addEventListener('click', function() {
-            if (window.AppBridge && typeof AppBridge.setAsWallpaper === 'function') {
+            if (window.AppBridge && typeof AppBridge.applyWallpaper === 'function') {
                 // 保存当前配置
                 saveConfig();
-                AppBridge.setAsWallpaper();
+                AppBridge.applyWallpaper(currentWallpaperFile, currentDepthFile || '');
             } else {
                 alert('设置壁纸功能仅在 Android 应用中可用');
             }
@@ -834,6 +834,9 @@
 
     /** 取消裁剪：恢复之前的状态 */
     function cancelCrop(skipRestore) {
+        if (window.AppBridge && typeof AppBridge.discardPickedImage === 'function' && currentWallpaperFile) {
+            AppBridge.discardPickedImage(currentWallpaperFile);
+        }
         cleanupCropUI();
 
         // 恢复之前的状态
@@ -861,19 +864,6 @@
         // 即时 UI 反馈
         $('preview-placeholder').style.display = 'none';
         $('image-info').textContent = '正在加载: ' + fileName + '...';
-
-        // 检查是否有缓存的深度图
-        if (window.AppBridge && typeof AppBridge.getDepthFileName === 'function') {
-            try {
-                var cachedName = AppBridge.getDepthFileName(fileName);
-                if (cachedName) {
-                    currentDepthFile = cachedName;
-                    console.log('[AppUI] 找到缓存的深度图: ' + cachedName);
-                }
-            } catch (e) {
-                console.warn('[AppUI] 查询深度图缓存失败:', e);
-            }
-        }
 
         // 加载预览
         loadPreview(currentWallpaperFile, currentDepthFile);

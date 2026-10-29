@@ -7,6 +7,7 @@ import android.util.Log
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import com.wallpaper.live3d.util.WallpaperFiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -165,7 +166,7 @@ class DepthEstimator(private val context: Context) {
 
             // ---- 5. 保存 ----
             onProgress(95, "正在保存")
-            val fileName = "depth_${System.currentTimeMillis()}.png"
+            val fileName = WallpaperFiles.newName("depth", "png")
             saveGrayPng(gray, outW, outH, File(cacheDir, fileName))
             Log.d(TAG, "深度图已保存: $fileName (${outW}x${outH})")
             fileName
