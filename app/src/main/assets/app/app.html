@@ -12,7 +12,41 @@
     <main class="pages">
         <!-- ====== 壁纸 ====== -->
         <section class="page" data-page="wallpaper" aria-label="壁纸">
-            <header class="topbar"><h1>互动 3D 壁纸</h1></header>
+            <header class="topbar">
+                <h1>互动 3D 壁纸</h1>
+                <span class="chip status-chip" id="wp-status-chip"><span class="dot"></span><span id="wp-status-text">未设为桌面壁纸</span></span>
+            </header>
+
+            <div class="preview big" id="preview-big">
+                <div class="hint">倾斜手机，或按住拖动预览</div>
+                <div class="veil"><span>生成深度图后可以预览视差</span></div>
+                <div class="empty-state"><svg class="i"><use href="#i-image-plus"/></svg><span>选一张图片开始</span></div>
+            </div>
+
+            <div class="under-preview">
+                <span class="meta"><span id="wp-res"></span><span class="chip accent" id="wp-in-use" hidden>使用中</span></span>
+                <span class="seg" id="wp-view" hidden>
+                    <button type="button" data-value="image">原图</button>
+                    <button type="button" data-value="depth">深度图</button>
+                </span>
+            </div>
+
+            <div class="card">
+                <div class="status none" id="wp-depth-status"></div>
+                <div class="progress" id="wp-progress" hidden><i></i></div>
+                <p class="progress-text" id="wp-progress-text" hidden></p>
+                <div class="divider"></div>
+                <div class="field">
+                    <div class="field-head"><label for="wp-blur">边缘平滑</label><span class="val" id="wp-blur-val">8px</span></div>
+                    <input type="range" id="wp-blur" min="0" max="30" step="1" value="8">
+                    <p class="note">越大主体边缘越不容易撕裂，重新生成深度图后生效</p>
+                </div>
+                <div class="btn-row">
+                    <button type="button" class="btn" id="wp-pick"><svg class="i"><use href="#i-image-plus"/></svg>选择图片</button>
+                    <button type="button" class="btn" id="wp-generate"><svg class="i"><use href="#i-wand-sparkles"/></svg><span>生成深度图</span></button>
+                </div>
+                <button type="button" class="btn primary block" id="wp-apply"><svg class="i"><use href="#i-check"/></svg><span>应用壁纸</span></button>
+            </div>
         </section>
 
         <!-- ====== 视差 ====== -->
@@ -34,6 +68,27 @@
 
     <div id="toast" class="toast glass" role="status" hidden></div>
 
+    <!-- ====== 裁剪（全屏，盖住页签栏） ====== -->
+    <div id="crop-overlay" hidden>
+        <div class="crop-bar">
+            <button type="button" class="btn ghost" id="crop-cancel">取消</button>
+            <span class="crop-title">调整裁剪范围</span>
+            <button type="button" class="btn primary sm" id="crop-confirm">确认</button>
+        </div>
+        <div id="crop-area">
+            <img id="crop-image" alt="">
+            <div class="crop-mask" id="crop-mask-top"></div>
+            <div class="crop-mask" id="crop-mask-bottom"></div>
+            <div class="crop-mask" id="crop-mask-left"></div>
+            <div class="crop-mask" id="crop-mask-right"></div>
+            <div id="crop-box">
+                <i class="crop-handle tl"></i><i class="crop-handle tr"></i>
+                <i class="crop-handle bl"></i><i class="crop-handle br"></i>
+            </div>
+        </div>
+        <div class="crop-hint glass">拖动移动 · 双指缩放 · 比例锁定为屏幕尺寸</div>
+    </div>
+
     <!-- Pixi.js -->
     <script src="../wallpaper/pixi.min.js"></script>
 
@@ -52,6 +107,11 @@
     <script src="controls.js"></script>
     <script src="shell.js"></script>
     <script src="main.js"></script>
+    <script src="preview.js"></script>
+    <script src="cropper.js"></script>
+
+    <!-- 页面 -->
+    <script src="wallpaper-page.js"></script>
 
 </body>
 </html>

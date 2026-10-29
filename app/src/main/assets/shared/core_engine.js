@@ -339,6 +339,9 @@ window.CoreEngine = (() => {
         /** 累计渲染帧数（调试和验证停帧用） */
         getFrameCount() { return frameCount; },
 
+        /** 当前壁纸原图尺寸 */
+        getImageSize() { return { width: bgWidth, height: bgHeight }; },
+
         /**
          * 更换壁纸图片（热替换纹理，不重建 Pixi 实例）
          * @returns {Promise<void>}
