@@ -91,6 +91,10 @@ class WallpaperBridge(private val context: Context) {
         android.util.Log.d("[WallpaperJS]", message)
     }
 
+    /** 调试版返回 true（壁纸页据此每秒打一次帧数） */
+    @JavascriptInterface
+    fun isDebug(): Boolean = com.wallpaper.live3d.BuildConfig.DEBUG
+
     @JavascriptInterface
     fun notifyReady() {
         android.util.Log.i("[Wallpaper]", "JS rendering engine ready")

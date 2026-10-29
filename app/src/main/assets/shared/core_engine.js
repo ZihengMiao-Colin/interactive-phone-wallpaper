@@ -55,6 +55,33 @@ window.CoreEngine = (() => {
     let bgBaseUrl = null;        // 原始背景图 URL（不带时间戳）
     let depthBaseUrl = null;     // 原始深度图 URL（不带时间戳）
 
+    // ==================== 空闲停帧 ====================
+    // 倾斜不变、画面已经停稳时停掉 ticker，最后一帧一直留在屏幕上；有新输入或参数变化再唤醒。
+    // 和桌面版 renderer/main.js 的做法一样。
+
+    /** 渲染帧率上限（手机屏幕多是 90 / 120Hz，壁纸不需要满帧） */
+    const MAX_FPS = 60;
+    /** 连续空闲这么多帧（约半秒）后停帧，让倾斜停下后的平滑过渡走完 */
+    const IDLE_GRACE_FRAMES = 30;
+    const idleTracker = new Shared.framePacing.IdleTracker({ graceFrames: IDLE_GRACE_FRAMES });
+    /** pause() 之后到 resume() 之前不自己唤醒（壁纸不可见） */
+    let paused = false;
+    /** 累计渲染帧数（调试和验证停帧用） */
+    let frameCount = 0;
+
+    /** 画面可能要变了：重新开始出帧（已经在跑时只重置空闲计数） */
+    function wake() {
+        idleTracker.reset();
+        if (app && !paused && !glLost && !app.ticker.started) app.ticker.start();
+    }
+
+    /** 每帧末尾调用：满足空闲条件就停掉 ticker */
+    function sleepIfIdle() {
+        const { isSettled } = Shared.framePacing;
+        const settled = isSettled(targetX, currentX) && isSettled(targetY, currentY);
+        if (idleTracker.frame(settled)) app.ticker.stop();
+    }
+
     // ==================== 尺寸与 Cover ====================
 
     /** 画面尺寸（CSS 像素）：预览按容器，壁纸按窗口 */
@@ -144,8 +171,9 @@ window.CoreEngine = (() => {
         if (oldBg) oldBg.destroy(true);
         if (oldDepth) oldDepth.destroy(true);
 
-        // 立刻出一帧：之后可能马上被暂停，保证画面不留空白
+        // 立刻出一帧：之后可能马上被暂停或停帧，保证画面不留空白
         app.renderer.render(app.stage);
+        wake();
         console.log('[CoreEngine] 已加载壁纸 ' + bgWidth + '×' + bgHeight
             + '，画面 ' + app.screen.width + '×' + app.screen.height);
     }
@@ -167,6 +195,8 @@ window.CoreEngine = (() => {
             filter.uniforms.uStrength = Shared.parallax.strengthFromMultiplier(WallpaperConfig.parallaxMultiplier);
             filter.uniforms.uFocus = Number(WallpaperConfig.focusDepth);
         }
+        frameCount++;
+        sleepIfIdle();
     }
 
     // ==================== 公开 API ====================
@@ -200,6 +230,9 @@ window.CoreEngine = (() => {
             };
             if (mode === 'wallpaper') options.resizeTo = window;
             app = new PIXI.Application(options);
+            app.ticker.maxFPS = MAX_FPS;
+            paused = false;
+            idleTracker.reset();
 
             // ---- WebGL Context 丢失处理（Android 后台会回收 GPU） ----
             // 用 on 属性而不是 addEventListener，destroy() 置 null 就能挡住旧 canvas 的异步事件
@@ -216,7 +249,7 @@ window.CoreEngine = (() => {
                 console.log('[WebGL] Context restored, 正在恢复纹理...');
                 load(bust(bgBaseUrl), bust(depthBaseUrl)).then(() => {
                     glLost = false;
-                    if (app) app.ticker.start();
+                    wake();
                     console.log('[WebGL] 完全恢复');
                 });
             };
@@ -242,11 +275,13 @@ window.CoreEngine = (() => {
             container = el;
             if (app && app.view.parentNode !== el) el.appendChild(app.view);
             fitRenderer();
+            wake();
         },
 
         /** 窗口或容器尺寸变化 */
         resize() {
             fitRenderer();
+            wake();
         },
 
         /**
@@ -258,12 +293,14 @@ window.CoreEngine = (() => {
             for (const key of ['parallaxMultiplier', 'smoothness', 'focusDepth']) {
                 if (p[key] !== undefined && p[key] !== null) WallpaperConfig[key] = Number(p[key]);
             }
+            wake();
         },
 
         /** 显示原图或深度图（深度图视图同样有视差） */
         setView(next) {
             view = next === 'depth' ? 'depth' : 'image';
             if (filter) filter.uniforms.uImage = view === 'depth' ? depthTexture : bgTexture;
+            wake();
         },
 
         /**
@@ -272,24 +309,35 @@ window.CoreEngine = (() => {
          * @param {number} y - 归一化的 Y 轴倾斜 [-1, 1]
          */
         setSensorTarget(x, y) {
+            if (x === targetX && y === targetY) return;
             targetX = x;
             targetY = y;
+            wake();
         },
 
         /** 桌面滑动偏移 (Engine.onOffsetsChanged 推送)，xOffset ∈ [0, 1] */
         setDesktopOffset(xOffset) {
-            desktopOffsetX = (xOffset - 0.5) * 2;  // 中心化到 [-1, 1]
+            const next = (xOffset - 0.5) * 2;  // 中心化到 [-1, 1]
+            if (next === desktopOffsetX) return;
+            // 桌面偏移没有插值，直接生效；唤醒出几帧把新偏移画出来
+            desktopOffsetX = next;
+            wake();
         },
 
-        /** 暂停渲染 */
+        /** 暂停渲染（壁纸不可见） */
         pause() {
+            paused = true;
             if (app) app.ticker.stop();
         },
 
         /** 恢复渲染 */
         resume() {
-            if (app && !glLost) app.ticker.start();
+            paused = false;
+            wake();
         },
+
+        /** 累计渲染帧数（调试和验证停帧用） */
+        getFrameCount() { return frameCount; },
 
         /**
          * 更换壁纸图片（热替换纹理，不重建 Pixi 实例）

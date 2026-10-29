@@ -145,10 +145,29 @@
         CoreEngine.reloadImages(bgUrl, depthUrl);
     };
 
+    // ==================== 调试：每秒帧数 ====================
+
+    // 调试版每秒往 logcat 打一次这一秒渲染了几帧，静止时应为 0（adb logcat -s "[WallpaperJS]"）
+    function startFpsLog() {
+        if (!window.AndroidBridge || typeof AndroidBridge.isDebug !== 'function') return;
+        try {
+            if (!AndroidBridge.isDebug()) return;
+        } catch (e) {
+            return;
+        }
+        var last = CoreEngine.getFrameCount();
+        setInterval(function() {
+            var now = CoreEngine.getFrameCount();
+            AndroidBridge.log('fps=' + (now - last));
+            last = now;
+        }, 1000);
+    }
+
     // ==================== 自动加载配置 ====================
 
     // 页面加载时读取配置参数 (不触发 CoreEngine.init)
     // CoreEngine.init 由 Kotlin 在 onPageFinished 后显式推送
     loadConfigParams();
+    startFpsLog();
 
 })();

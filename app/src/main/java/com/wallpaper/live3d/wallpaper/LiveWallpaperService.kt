@@ -80,7 +80,7 @@ class LiveWallpaperService : WallpaperService() {
             displayDensityDpi = dm.densityDpi
 
             // 初始化传感器
-            sensorHelper = SensorHelper(this@LiveWallpaperService)
+            sensorHelper = SensorHelper(this@LiveWallpaperService, configManager)
         }
 
         // ==================== Lifecycle: onSurfaceCreated ====================
@@ -162,7 +162,8 @@ class LiveWallpaperService : WallpaperService() {
                 val normY = (event.y / (wv.height.coerceAtLeast(1))).toFloat() * 2f - 1f
                 pushToJs("CoreEngine.setSensorTarget($normX,$normY);")
             } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
-                pushToJs("CoreEngine.setSensorTarget(0,0);")
+                // 松手后回到当前陀螺仪的位置（去抖后陀螺仪可能很久不推新值，不能等它）
+                sensorHelper?.pushLatest()
             }
         }
 
