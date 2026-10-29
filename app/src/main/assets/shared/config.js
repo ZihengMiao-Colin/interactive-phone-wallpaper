@@ -3,25 +3,31 @@
  * shared/config.js — 壁纸配置默认值
  * ============================================================================
  *
- * 从 app.js CONFIG 提取，新增 Android 传感器相关参数。
+ * 实际值由 Kotlin 的 ConfigManager 保存，页面启动时读进来覆盖这里。
  */
 
 'use strict';
 window.WallpaperConfig = {
-    /** 视差强度系数 —— 控制位移的最大像素偏移量 */
-    parallaxMultiplier: 15,   // 范围: 5..100
+    /** 视差强度 —— 换算成着色器强度见 Shared.parallax.strengthFromMultiplier */
+    parallaxMultiplier: 10,   // 范围: 5..100
 
-    /** 平滑度 —— Lerp 插值的比率 (0~1)，越小越平滑 */
+    /** 跟手程度 —— Lerp 插值的比率 (0~1)，越小越平滑 */
     smoothness: 0.05,         // 范围: 0.01..0.30
 
-    /** 陀螺仪死区 (度) —— 在此范围内的倾斜不产生位移 */
+    /** 对焦深度 —— 这个深度的内容不动 (0 远 ~ 1 近) */
+    focusDepth: 0.5,
+
+    /** 静止范围 (度) —— 倾斜小于这个角度时画面不动 */
     deadZoneDeg: 3.0,
 
-    /** 陀螺仪饱和阈值 (度) —— 超过此角度的倾斜不再增大位移 */
+    /** 最大倾斜 (度) —— 倾斜到这个角度时视差达到最大 */
     maxTiltDeg: 30.0,
 
-    /** 桌面滑动附加像素偏移量 —— onOffsetsChanged 驱动 */
-    desktopParallax: 5,
+    /** 边缘平滑 (像素) —— 生成深度图时用 */
+    blurRadius: 8,
+
+    /** 桌面左右滑动偏移叠加到倾斜输入上的权重（和旧版 5px / 15px 的比例相当） */
+    desktopOffsetWeight: 0.33,
 
     /** 是否隐藏调试面板 */
     hideDebugPanel: true,

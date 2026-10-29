@@ -1,401 +1,333 @@
 /**
  * ============================================================================
- * shared/core_engine.js — Pixi.js 核心渲染引擎
+ * shared/core_engine.js — Pixi.js 深度视差渲染引擎（壁纸和 App 预览共用）
  * ============================================================================
  *
- * 从 app.js 提取并适配 Android 环境：
- *   - Pixi.js 初始化 + DisplacementFilter + Cover 缩放 + Lerp 动画循环
- *   - WebGL context lost/restored 处理（Android 后台 GPU 回收防护）
- *   - setSensorTarget() → 接收原生 SensorManager 推送的归一化偏移
- *   - setDesktopOffset() → 接收 onOffsetsChanged 桌面滑动偏移
- *   - pause/resume/destroy 生命周期管理
+ * 原理和桌面版 renderer/parallax-scene.js 一样：全屏精灵挂一个自定义滤镜，
+ * 片元着色器按深度图把每个像素的采样坐标沿倾斜方向偏移，
+ * 偏移量 = tilt × (depth − focus) × strength（带软截断）。
+ * 深度等于对焦深度的地方完全不动，离得越远偏移越大，形成伪 3D 视差。
  *
- * 依赖：PIXI (全局), WallpaperConfig, ImageLoader
+ * 输入：
+ *   - setSensorTarget()  ← 原生 SensorManager 推送的归一化倾斜 [-1, 1]
+ *   - setDesktopOffset() ← 桌面左右滑动偏移 (onOffsetsChanged)
+ * 生命周期：pause / resume / destroy，WebGL context lost / restored 时重新加载纹理。
+ *
+ * 依赖：PIXI、WallpaperConfig、ImageLoader、Shared.parallax、着色器源码 (shared/shaders.js)
  */
 
 'use strict';
-window.CoreEngine = (function() {
-    'use strict';
+
+window.CoreEngine = (() => {
+    /** 背景深度视差滤镜（uniform 和桌面版一致） */
+    class DepthParallaxFilter extends PIXI.Filter {
+        constructor(imageTexture, depthTexture) {
+            super(PARALLAX_VERTEX_SHADER, PARALLAX_FRAGMENT_SHADER, {
+                uImage: imageTexture,
+                uDepth: depthTexture,
+                uMouse: new Float32Array([0.0, 0.0]),
+                uStrength: 0.025,
+                uFocus: 0.50,
+                uCoverScale: new Float32Array([1.0, 1.0]),
+                uCoverOffset: new Float32Array([0.0, 0.0]),
+            });
+        }
+    }
 
     // ==================== 内部状态 ====================
 
-    var app = null;              // PIXI.Application
-    var bgSprite = null;         // 背景精灵
-    var depthSprite = null;      // 深度图精灵 (renderable=false)
-    var displacementFilter = null;
-    var container = null;
+    let app = null;              // PIXI.Application
+    let mode = 'wallpaper';      // 'wallpaper' | 'preview'
+    let container = null;        // 预览模式下画布所在的元素
+    let screenSprite = null;     // 全屏精灵（本身是白色贴图，画面完全由滤镜采样得到）
+    let filter = null;
+    let bgTexture = null;
+    let depthTexture = null;
+    let bgWidth = 0;
+    let bgHeight = 0;
+    let view = 'image';          // 'image' 显示原图，'depth' 显示深度图
 
-    var targetX = 0, targetY = 0;
-    var currentX = 0, currentY = 0;
+    let targetX = 0, targetY = 0;
+    let currentX = 0, currentY = 0;
+    let desktopOffsetX = 0;
 
-    var bgNaturalWidth = 0;
-    var bgNaturalHeight = 0;
+    let glLost = false;
+    let bgBaseUrl = null;        // 原始背景图 URL（不带时间戳）
+    let depthBaseUrl = null;     // 原始深度图 URL（不带时间戳）
 
-    // WebGL 生命周期
-    var glLost = false;
-    var bgBaseUrl = null;        // 原始背景图 URL（不带时间戳）
-    var depthBaseUrl = null;     // 原始深度图 URL（不带时间戳）
+    // ==================== 尺寸与 Cover ====================
 
-    // 桌面滑动偏移
-    var desktopOffsetX = 0;
-
-    // ==================== Cover 缩放 ====================
-
-    function getCoverScale(imgW, imgH, containerW, containerH) {
-        var scaleX = containerW / imgW;
-        var scaleY = containerH / imgH;
-        return Math.max(scaleX, scaleY);  // Cover = 取最大值
-    }
-
-    function applyCoverScale() {
-        if (!bgSprite || !depthSprite) return;
-        var scale = getCoverScale(
-            bgNaturalWidth, bgNaturalHeight,
-            app.screen.width, app.screen.height
-        );
-        bgSprite.scale.set(scale);
-        depthSprite.scale.set(scale);
-    }
-
-    // ==================== WebGL 纹理恢复 ====================
-
-    function restoreTextures() {
-        var t = Date.now();
-
-        var bgUrl = bgBaseUrl;
-        var depthUrl = depthBaseUrl;
-
-        // 仅当有有效 URL 时才重新加载（data: URL 不需时间戳）
-        if (bgUrl && bgUrl.indexOf('data:') !== 0) {
-            bgUrl = bgUrl + '?t=' + t;
+    /** 画面尺寸（CSS 像素）：预览按容器，壁纸按窗口 */
+    function viewSize() {
+        if (mode === 'preview' && container && container.clientWidth > 0 && container.clientHeight > 0) {
+            return { w: container.clientWidth, h: container.clientHeight };
         }
-        if (depthUrl && depthUrl.indexOf('data:') !== 0) {
-            depthUrl = depthUrl + '?t=' + t;
-        }
-
-        console.log('[WebGL] 恢复纹理: ' + bgUrl);
-
-        return Promise.all([
-            ImageLoader.loadImage(bgUrl).catch(function() { return null; }),
-            ImageLoader.loadImage(depthUrl).catch(function() { return null; }),
-        ]).then(function(results) {
-            var bgImg = results[0];
-            var depthImg = results[1];
-
-            if (bgImg) {
-                var bgTex = PIXI.Texture.from(bgImg);
-                bgSprite.texture = bgTex;
-                bgNaturalWidth = bgImg.naturalWidth || bgImg.width;
-                bgNaturalHeight = bgImg.naturalHeight || bgImg.height;
-            }
-
-            if (depthImg) {
-                var depthTex = PIXI.Texture.from(depthImg);
-                depthTex.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
-                depthSprite.texture = depthTex;
-            } else {
-                // 深度图加载失败，用灰色占位图
-                var fallback = ImageLoader.createFallbackDepthImage(
-                    bgNaturalWidth || 1920,
-                    bgNaturalHeight || 1080
-                );
-                depthSprite.texture = PIXI.Texture.from(fallback);
-                depthSprite.texture.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
-            }
-
-            applyCoverScale();
-            console.log('[WebGL] 纹理恢复完成');
-        });
+        return { w: window.innerWidth, h: window.innerHeight };
     }
 
-    // ==================== Lerp 动画循环 ====================
+    /** 按当前尺寸更新精灵大小和 Cover 映射（原图以 Cover 方式铺满画面） */
+    function updateCover() {
+        const { w, h } = viewSize();
+        if (!w || !h) return;
+        if (screenSprite) {
+            screenSprite.width = w;
+            screenSprite.height = h;
+        }
+        if (filter) {
+            const cover = Shared.parallax.coverTransform(w, h, bgWidth || w, bgHeight || h);
+            // 必须整体赋值数组，才能触发 Pixi UniformGroup 的脏标记
+            filter.uniforms.uCoverScale = [cover.scaleX, cover.scaleY];
+            filter.uniforms.uCoverOffset = [cover.offsetX, cover.offsetY];
+        }
+    }
 
+    /** 预览模式没有 resizeTo，尺寸变了要手动调整渲染器 */
+    function fitRenderer() {
+        if (!app) return;
+        if (mode === 'preview') {
+            const { w, h } = viewSize();
+            if (w && h && (app.screen.width !== w || app.screen.height !== h)) app.renderer.resize(w, h);
+        }
+        updateCover();
+    }
+
+    // ==================== 纹理 ====================
+
+    function makeTexture(source) {
+        const texture = PIXI.Texture.from(source);
+        texture.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
+        return texture;
+    }
+
+    /** 给 URL 加时间戳，防止 WebView 拿到旧文件（data: URL 不需要） */
+    function bust(url) {
+        if (!url || url.indexOf('data:') === 0) return url;
+        return url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+    }
+
+    /**
+     * 加载（或更换）壁纸与深度图。首次调用建好精灵和滤镜，之后只替换纹理并释放旧纹理。
+     * @param {string} bgUrl - 加载失败会抛错
+     * @param {string|null} depthUrl - 为 null 或加载失败时用占位深度图
+     */
+    async function load(bgUrl, depthUrl) {
+        const bgImg = await ImageLoader.loadImage(bgUrl);
+        let depthImg = null;
+        if (depthUrl) {
+            try {
+                depthImg = await ImageLoader.loadImage(depthUrl);
+            } catch (err) {
+                console.warn('[CoreEngine] 深度图加载失败，改用占位深度图');
+            }
+        }
+        if (!app) return;   // 加载期间被销毁了
+        bgWidth = bgImg.naturalWidth || bgImg.width;
+        bgHeight = bgImg.naturalHeight || bgImg.height;
+        if (!depthImg) depthImg = ImageLoader.createFallbackDepthImage(bgWidth, bgHeight);
+
+        const oldBg = bgTexture;
+        const oldDepth = depthTexture;
+        bgTexture = makeTexture(bgImg);
+        depthTexture = makeTexture(depthImg);
+
+        if (!filter) {
+            screenSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
+            filter = new DepthParallaxFilter(bgTexture, depthTexture);
+            screenSprite.filters = [filter];
+            app.stage.addChild(screenSprite);
+        }
+        filter.uniforms.uImage = view === 'depth' ? depthTexture : bgTexture;
+        filter.uniforms.uDepth = depthTexture;
+        fitRenderer();
+
+        // 新纹理已经挂上滤镜，旧纹理可以连同 GPU 资源一起释放
+        if (oldBg) oldBg.destroy(true);
+        if (oldDepth) oldDepth.destroy(true);
+
+        // 立刻出一帧：之后可能马上被暂停，保证画面不留空白
+        app.renderer.render(app.stage);
+        console.log('[CoreEngine] 已加载壁纸 ' + bgWidth + '×' + bgHeight
+            + '，画面 ' + app.screen.width + '×' + app.screen.height);
+    }
+
+    // ==================== 动画循环 ====================
+
+    /**
+     * 每帧更新（Pixi ticker 驱动）。
+     * @param {number} delta - 以 60fps 为 1 的帧时间倍数，保证不同帧率下跟手速度一致
+     */
     function updateLoop(delta) {
-        var s = 1 - Math.pow(1 - WallpaperConfig.smoothness, delta);
-        currentX += (targetX - currentX) * s;
-        currentY += (targetY - currentY) * s;
+        const k = 1 - Math.pow(1 - WallpaperConfig.smoothness, delta);
+        currentX += (targetX - currentX) * k;
+        currentY += (targetY - currentY) * k;
 
-        if (displacementFilter) {
-            displacementFilter.scale.x =
-                currentX * WallpaperConfig.parallaxMultiplier
-                + desktopOffsetX * WallpaperConfig.desktopParallax;
-            displacementFilter.scale.y =
-                currentY * WallpaperConfig.parallaxMultiplier;
+        if (filter) {
+            // 不取反：方向和旧版 DisplacementFilter 一致（采样偏移 = +tilt × (depth − 0.5) × 系数）
+            filter.uniforms.uMouse = [currentX + desktopOffsetX * WallpaperConfig.desktopOffsetWeight, currentY];
+            filter.uniforms.uStrength = Shared.parallax.strengthFromMultiplier(WallpaperConfig.parallaxMultiplier);
+            filter.uniforms.uFocus = Number(WallpaperConfig.focusDepth);
         }
     }
 
     // ==================== 公开 API ====================
 
     return {
-
         /**
-         * 初始化 Pixi.js 渲染引擎。
-         *
-         * @param {string} bgUrl    - 背景图 URL (WebViewAssetLoader 地址 或 Data URL)
-         * @param {string} depthUrl - 深度图 URL (可以为 null，则使用灰色占位图)
-         * @param {string} mode     - 'wallpaper' | 'preview'
-         * @returns {Promise}
+         * 初始化渲染引擎。已有实例时先销毁。
+         * @param {string} bgUrl - 背景图 URL
+         * @param {string|null} depthUrl - 深度图 URL，null 时用占位深度图
+         * @param {'wallpaper'|'preview'} engineMode
+         * @param {HTMLElement} [previewContainer] - 预览模式的画布容器，默认 #preview-container
+         * @returns {Promise<void>}
          */
-        init: function(bgUrl, depthUrl, mode) {
-            var self = this;
+        init(bgUrl, depthUrl, engineMode, previewContainer) {
+            if (app) this.destroy();
+            mode = engineMode === 'preview' ? 'preview' : 'wallpaper';
+            container = mode === 'preview'
+                ? (previewContainer || document.getElementById('preview-container'))
+                : null;
             bgBaseUrl = bgUrl;
             depthBaseUrl = depthUrl;
 
-            // 如果已有实例，先销毁
-            if (app) {
-                this.destroy();
-            }
-
-            // 预览模式：画布放入 #preview-container，尺寸匹配容器
-            // 壁纸模式：画布放入 body，全屏渲染
-            var isPreview = (mode === 'preview');
-            var previewContainer = isPreview
-                ? document.getElementById('preview-container')
-                : null;
-
-            var pixiWidth = (previewContainer && previewContainer.clientWidth > 0)
-                ? previewContainer.clientWidth
-                : window.innerWidth;
-            var pixiHeight = (previewContainer && previewContainer.clientHeight > 0)
-                ? previewContainer.clientHeight
-                : window.innerHeight;
-
-            // 创建 Pixi.js Application
-            // 预览模式不使用 resizeTo（容器固定 220px 高），避免与 CSS 冲突
-            var pixiOpts = {
-                width: pixiWidth,
-                height: pixiHeight,
+            const { w, h } = viewSize();
+            const options = {
+                width: w,
+                height: h,
                 backgroundColor: 0x000000,
                 antialias: true,
                 resolution: window.devicePixelRatio || 1,
                 autoDensity: true,
             };
-            if (!isPreview) {
-                pixiOpts.resizeTo = window;
-            }
-            app = new PIXI.Application(pixiOpts);
+            if (mode === 'wallpaper') options.resizeTo = window;
+            app = new PIXI.Application(options);
 
-            // 获取 canvas 引用用于 WebGL 事件监听
-            var canvas = app.view;
-
-            // ---- WebGL Context 丢失处理 ----
-            // 使用 onwebglcontextlost 而非 addEventListener，
-            // 这样 destroy() 可以通过置 null 来阻止旧 canvas 的异步事件影响新实例
-            canvas.onwebglcontextlost = function(e) {
-                if (!app) return;  // 已被 destroy() 清理，忽略异步残留事件
+            // ---- WebGL Context 丢失处理（Android 后台会回收 GPU） ----
+            // 用 on 属性而不是 addEventListener，destroy() 置 null 就能挡住旧 canvas 的异步事件
+            const canvas = app.view;
+            canvas.onwebglcontextlost = (e) => {
+                if (!app) return;
                 e.preventDefault();
                 glLost = true;
-                if (app.ticker) app.ticker.stop();
+                app.ticker.stop();
                 console.warn('[WebGL] Context lost, 渲染已暂停');
             };
-
-            canvas.onwebglcontextrestored = function() {
+            canvas.onwebglcontextrestored = () => {
                 if (!app) return;
                 console.log('[WebGL] Context restored, 正在恢复纹理...');
-                restoreTextures().then(function() {
+                load(bust(bgBaseUrl), bust(depthBaseUrl)).then(() => {
                     glLost = false;
-                    if (app && app.ticker) app.ticker.start();
+                    if (app) app.ticker.start();
                     console.log('[WebGL] 完全恢复');
                 });
             };
 
-            // 添加到页面（预览模式放入容器，壁纸模式放入 body）
-            if (mode === 'preview') {
-                var previewContainer = document.getElementById('preview-container');
-                if (previewContainer) {
-                    // 移除静态占位 canvas（HTML 中的 #preview-canvas，仅首次需要）
-                    var staticCanvas = document.getElementById('preview-canvas');
-                    if (staticCanvas) staticCanvas.remove();
-                    // 注意: 不要使用 innerHTML = '' — 会销毁 #preview-placeholder，
-                    // 导致后续 onImageSelected 找不到该元素而崩溃
-                    previewContainer.appendChild(canvas);
-                } else {
-                    console.warn('[CoreEngine] 找不到 #preview-container，回退到 body');
-                    document.body.appendChild(canvas);
-                }
+            if (mode === 'preview' && container) {
+                // 旧界面的静态占位 canvas
+                const staticCanvas = document.getElementById('preview-canvas');
+                if (staticCanvas) staticCanvas.remove();
+                container.appendChild(canvas);
             } else {
                 document.body.appendChild(canvas);
             }
 
-            // 加载图片
-            var loadBg = ImageLoader.loadImage(bgUrl);
-            var loadDepth = depthUrl
-                ? ImageLoader.loadImage(depthUrl)
-                : Promise.resolve(null);
-
-            return Promise.all([loadBg, loadDepth]).then(function(results) {
-                var bgImg = results[0];
-                var depthImg = results[1];
-
-                // 缓存原始尺寸
-                bgNaturalWidth = bgImg.naturalWidth || bgImg.width;
-                bgNaturalHeight = bgImg.naturalHeight || bgImg.height;
-
-                // 深度图为空时生成占位图
-                if (!depthImg) {
-                    console.warn('[CoreEngine] 深度图未提供，使用灰色占位图（无深度视差效果）');
-                    depthImg = ImageLoader.createFallbackDepthImage(bgNaturalWidth, bgNaturalHeight);
-                }
-
-                // 创建纹理
-                var bgTexture = PIXI.Texture.from(bgImg);
-                var depthTexture = PIXI.Texture.from(depthImg);
-                depthTexture.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
-
-                // 创建精灵
-                bgSprite = new PIXI.Sprite(bgTexture);
-                bgSprite.anchor.set(0.5, 0.5);
-
-                depthSprite = new PIXI.Sprite(depthTexture);
-                depthSprite.anchor.set(0.5, 0.5);
-                depthSprite.renderable = false;  // 只提供纹理数据给滤镜
-
-                // 创建容器
-                container = new PIXI.Container();
-                container.x = app.screen.width / 2;
-                container.y = app.screen.height / 2;
-                container.addChild(depthSprite);
-                container.addChild(bgSprite);
-
-                // Cover 缩放
-                applyCoverScale();
-
-                // DisplacementFilter
-                displacementFilter = new PIXI.DisplacementFilter(depthSprite, 0);
-                container.filters = [displacementFilter];
-
-                // 添加到舞台
-                app.stage.addChild(container);
-
-                // 启动动画循环
-                app.ticker.add(updateLoop);
-
-                console.log('[CoreEngine] 初始化完成 (' + mode + ' 模式) '
-                    + app.screen.width + 'x' + app.screen.height);
+            app.ticker.add(updateLoop);
+            return load(bgUrl, depthUrl).then(() => {
+                console.log('[CoreEngine] 初始化完成 (' + mode + ' 模式)');
             });
         },
 
-        /** 窗口 resize */
-        resize: function() {
-            if (container && app) {
-                container.x = app.screen.width / 2;
-                container.y = app.screen.height / 2;
-            }
-            applyCoverScale();
+        /** 预览模式：把画布挪到另一个容器（切页签时用），按新容器尺寸重算 */
+        mount(el) {
+            if (mode !== 'preview' || !el) return;
+            container = el;
+            if (app && app.view.parentNode !== el) el.appendChild(app.view);
+            fitRenderer();
+        },
+
+        /** 窗口或容器尺寸变化 */
+        resize() {
+            fitRenderer();
         },
 
         /**
-         * 原生传感器输入 (SensorManager → evaluateJavascript 推送)
+         * 更新视差参数（写进 WallpaperConfig，未初始化时也可以调用）
+         * @param {{parallaxMultiplier?: number, smoothness?: number, focusDepth?: number}} p
+         */
+        setParams(p) {
+            if (!p) return;
+            for (const key of ['parallaxMultiplier', 'smoothness', 'focusDepth']) {
+                if (p[key] !== undefined && p[key] !== null) WallpaperConfig[key] = Number(p[key]);
+            }
+        },
+
+        /** 显示原图或深度图（深度图视图同样有视差） */
+        setView(next) {
+            view = next === 'depth' ? 'depth' : 'image';
+            if (filter) filter.uniforms.uImage = view === 'depth' ? depthTexture : bgTexture;
+        },
+
+        /**
+         * 倾斜输入
          * @param {number} x - 归一化的 X 轴倾斜 [-1, 1]
          * @param {number} y - 归一化的 Y 轴倾斜 [-1, 1]
          */
-        setSensorTarget: function(x, y) {
+        setSensorTarget(x, y) {
             targetX = x;
             targetY = y;
         },
 
-        /**
-         * 桌面滑动偏移 (Engine.onOffsetsChanged 推送)
-         * @param {number} xOffset - 桌面水平偏移 [0.0, 1.0]
-         */
-        setDesktopOffset: function(xOffset) {
+        /** 桌面滑动偏移 (Engine.onOffsetsChanged 推送)，xOffset ∈ [0, 1] */
+        setDesktopOffset(xOffset) {
             desktopOffsetX = (xOffset - 0.5) * 2;  // 中心化到 [-1, 1]
         },
 
         /** 暂停渲染 */
-        pause: function() {
-            if (app && app.ticker) {
-                app.ticker.stop();
-            }
+        pause() {
+            if (app) app.ticker.stop();
         },
 
         /** 恢复渲染 */
-        resume: function() {
-            if (app && app.ticker && !glLost) {
-                app.ticker.start();
-            }
+        resume() {
+            if (app && !glLost) app.ticker.start();
         },
 
         /**
-         * 更换壁纸图片（热替换纹理，不需要重建 Pixi.js 实例）。
-         * @param {string} newBgUrl   - 新背景图 URL
-         * @param {string} newDepthUrl - 新深度图 URL
-         * @returns {Promise}
+         * 更换壁纸图片（热替换纹理，不重建 Pixi 实例）
+         * @returns {Promise<void>}
          */
-        reloadImages: function(newBgUrl, newDepthUrl) {
+        reloadImages(newBgUrl, newDepthUrl) {
             bgBaseUrl = newBgUrl;
             depthBaseUrl = newDepthUrl;
-
-            // 清理 Pixi 纹理缓存
-            PIXI.utils.destroyTextureCache();
-
-            var t = Date.now();
-            var bgLoadUrl = newBgUrl;
-            var depthLoadUrl = newDepthUrl;
-
-            if (bgLoadUrl && bgLoadUrl.indexOf('data:') !== 0) {
-                bgLoadUrl = bgLoadUrl + '?t=' + t;
-            }
-            if (depthLoadUrl && depthLoadUrl.indexOf('data:') !== 0) {
-                depthLoadUrl = depthLoadUrl + '?t=' + t;
-            }
-
-            if (app && app.ticker) app.ticker.stop();
-
-            return Promise.all([
-                ImageLoader.loadImage(bgLoadUrl),
-                ImageLoader.loadImage(depthLoadUrl).catch(function() { return null; }),
-            ]).then(function(results) {
-                var bgImg = results[0];
-                var depthImg = results[1];
-
-                bgNaturalWidth = bgImg.naturalWidth || bgImg.width;
-                bgNaturalHeight = bgImg.naturalHeight || bgImg.height;
-
-                if (!depthImg) {
-                    depthImg = ImageLoader.createFallbackDepthImage(bgNaturalWidth, bgNaturalHeight);
-                }
-
-                bgSprite.texture = PIXI.Texture.from(bgImg);
-                var depthTex = PIXI.Texture.from(depthImg);
-                depthTex.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP;
-                depthSprite.texture = depthTex;
-
-                applyCoverScale();
-
-                if (app && app.ticker) app.ticker.start();
-                console.log('[CoreEngine] 壁纸已热替换');
-            });
+            if (!app) return Promise.resolve();
+            return load(bust(newBgUrl), bust(newDepthUrl));
         },
 
         /**
-         * 销毁 Pixi.js 实例，释放 WebGL 上下文和 GPU 显存。
-         * 在 MainActivity.onStop/onDestroy 时调用，防止双 WebView 显存冲突。
+         * 销毁 Pixi 实例，释放 WebGL 上下文和显存。
+         * MainActivity.onStop 时调用，防止和壁纸服务的 WebView 同时占两份显存。
          */
-        destroy: function() {
+        destroy() {
             if (app) {
-                // 先移除 WebGL 事件监听，防止 destroy() 触发的异步 context lost
-                // 事件影响后续新创建的实例
-                var canvas = app.view;
+                const canvas = app.view;
                 if (canvas) {
                     canvas.onwebglcontextlost = null;
                     canvas.onwebglcontextrestored = null;
                 }
-                if (app.ticker) app.ticker.stop();
-                if (app.stage) app.stage.removeChildren();
+                app.ticker.stop();
+                app.stage.removeChildren();
                 // destroy(true) 删除 canvas 并释放 WebGL 上下文
-                app.destroy(true, { children: true, texture: true });
+                app.destroy(true, { children: true, texture: true, baseTexture: true });
                 app = null;
             }
-            bgSprite = null;
-            depthSprite = null;
-            displacementFilter = null;
-            container = null;
+            screenSprite = null;
+            filter = null;
+            bgTexture = null;
+            depthTexture = null;
             glLost = false;
             console.log('[CoreEngine] 已销毁，GPU 资源已释放');
         },
 
-        /** 获取 Pixi Application 引用（调试用） */
-        getApp: function() { return app; },
+        /** Pixi Application（调试用） */
+        getApp() { return app; },
     };
 })();
