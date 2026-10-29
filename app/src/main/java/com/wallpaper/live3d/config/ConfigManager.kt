@@ -6,19 +6,22 @@ import org.json.JSONObject
 
 /**
  * ============================================================================
- * ConfigManager — SharedPreferences 封装
+ * ConfigManager — SharedPreferences 封装（App 和壁纸服务共用）
  * ============================================================================
  *
- * 替代 Electron 的 electron-store / store.js，使用 Android SharedPreferences。
- *
  * 持久化键值:
- *   parallaxMultiplier (int)   - 视差强度, 默认 15
- *   smoothness (float)         - 平滑度, 默认 0.05
- *   deadZoneDeg (float)        - 陀螺仪死区, 默认 3.0
- *   maxTiltDeg (float)         - 最大倾斜角, 默认 30.0
- *   currentImage (string)      - 当前壁纸文件名
- *   depthFile (string)         - 深度图缓存文件名
+ *   parallaxMultiplier (int)   - 视差强度, 默认 10 (5~100)
+ *   smoothness (float)         - 跟手程度, 默认 0.05 (0.01~0.30)
+ *   focusDepth (float)         - 对焦深度, 默认 0.5 (0~1)
+ *   deadZoneDeg (float)        - 静止范围, 默认 3.0 (0~10)
+ *   maxTiltDeg (float)         - 最大倾斜, 默认 30.0 (10~60)
+ *   blurRadius (int)           - 边缘平滑, 默认 8 (0~30)
+ *   currentImage (string)      - 桌面壁纸正在用的图片文件名（只有"应用壁纸"时写）
+ *   depthFile (string)         - 桌面壁纸正在用的深度图文件名（同上）
  *   hideDebugPanel (boolean)   - 隐藏调试面板, 默认 true
+ *
+ * SharedPreferences 在进程内是单例：不同 ConfigManager 实例写的改动，
+ * 其他实例注册的监听器都能收到（壁纸服务靠这个实时同步）。
  */
 class ConfigManager(context: Context) {
 
@@ -31,65 +34,96 @@ class ConfigManager(context: Context) {
         // 键名
         const val KEY_PARALLAX = "parallaxMultiplier"
         const val KEY_SMOOTHNESS = "smoothness"
+        const val KEY_FOCUS = "focusDepth"
         const val KEY_DEAD_ZONE = "deadZoneDeg"
         const val KEY_MAX_TILT = "maxTiltDeg"
+        const val KEY_BLUR = "blurRadius"
         const val KEY_CURRENT_IMAGE = "currentImage"
         const val KEY_DEPTH_FILE = "depthFile"
         const val KEY_HIDE_DEBUG = "hideDebugPanel"
 
-        // 默认值
-        val DEFAULTS = JSONObject().apply {
-            put(KEY_PARALLAX, 15)
-            put(KEY_SMOOTHNESS, 0.05)
-            put(KEY_DEAD_ZONE, 3.0)
-            put(KEY_MAX_TILT, 30.0)
-            put(KEY_CURRENT_IMAGE, "")
-            put(KEY_DEPTH_FILE, "")
-            put(KEY_HIDE_DEBUG, true)
+        /** 参数的默认值和范围；isInt 的存成 Int，其余存成 Float */
+        private class Param(val default: Double, val min: Double, val max: Double, val isInt: Boolean)
+
+        private val PARAMS = linkedMapOf(
+            KEY_PARALLAX to Param(10.0, 5.0, 100.0, true),
+            KEY_SMOOTHNESS to Param(0.05, 0.01, 0.30, false),
+            KEY_FOCUS to Param(0.5, 0.0, 1.0, false),
+            KEY_DEAD_ZONE to Param(3.0, 0.0, 10.0, false),
+            KEY_MAX_TILT to Param(30.0, 10.0, 60.0, false),
+            KEY_BLUR to Param(8.0, 0.0, 30.0, true),
+        )
+
+        /** 界面能改的参数 */
+        val PARAM_KEYS: Set<String> = PARAMS.keys
+
+        /** 渲染引擎要用的参数（变了要推给壁纸页） */
+        val RENDER_KEYS: Set<String> = setOf(KEY_PARALLAX, KEY_SMOOTHNESS, KEY_FOCUS)
+
+        /** 参数值钳到范围内，整数参数四舍五入；不是参数键或不是数字返回 null */
+        fun sanitize(key: String, value: Double): Number? {
+            val p = PARAMS[key] ?: return null
+            if (value.isNaN()) return null
+            val v = value.coerceIn(p.min, p.max)
+            return if (p.isInt) Math.round(v).toInt() else v.toFloat()
         }
     }
 
-    /** 返回所有配置的 JSON 字符串 */
-    fun getAll(): JSONObject {
-        return JSONObject().apply {
-            put(KEY_PARALLAX, prefs.getInt(KEY_PARALLAX, DEFAULTS.getInt(KEY_PARALLAX)))
-            put(KEY_SMOOTHNESS,
-                prefs.getFloat(KEY_SMOOTHNESS, DEFAULTS.getDouble(KEY_SMOOTHNESS).toFloat()).toDouble())
-            put(KEY_DEAD_ZONE,
-                prefs.getFloat(KEY_DEAD_ZONE, DEFAULTS.getDouble(KEY_DEAD_ZONE).toFloat()).toDouble())
-            put(KEY_MAX_TILT,
-                prefs.getFloat(KEY_MAX_TILT, DEFAULTS.getDouble(KEY_MAX_TILT).toFloat()).toDouble())
-            put(KEY_CURRENT_IMAGE,
-                prefs.getString(KEY_CURRENT_IMAGE, DEFAULTS.getString(KEY_CURRENT_IMAGE)) ?: "")
-            put(KEY_DEPTH_FILE,
-                prefs.getString(KEY_DEPTH_FILE, DEFAULTS.getString(KEY_DEPTH_FILE)) ?: "")
-            put(KEY_HIDE_DEBUG,
-                prefs.getBoolean(KEY_HIDE_DEBUG, DEFAULTS.getBoolean(KEY_HIDE_DEBUG)))
+    /** 读一个参数的当前值（Int 或 Float） */
+    private fun param(key: String): Number {
+        val p = PARAMS.getValue(key)
+        return if (p.isInt) prefs.getInt(key, p.default.toInt()) else prefs.getFloat(key, p.default.toFloat())
+    }
+
+    /** 返回所有配置 */
+    fun getAll(): JSONObject = JSONObject().apply {
+        for (key in PARAM_KEYS) put(key, param(key))
+        put(KEY_CURRENT_IMAGE, getString(KEY_CURRENT_IMAGE))
+        put(KEY_DEPTH_FILE, getString(KEY_DEPTH_FILE))
+        put(KEY_HIDE_DEBUG, prefs.getBoolean(KEY_HIDE_DEBUG, true))
+    }
+
+    /** 推给渲染引擎的参数 {parallaxMultiplier, smoothness, focusDepth} */
+    fun paramsJson(): JSONObject = JSONObject().apply {
+        for (key in RENDER_KEYS) put(key, param(key))
+    }
+
+    /** 保存界面传来的参数：只认 PARAM_KEYS，按范围钳住；currentImage / depthFile 等一律忽略 */
+    fun applyParams(json: JSONObject) {
+        val editor = prefs.edit()
+        for (key in PARAM_KEYS) {
+            if (!json.has(key)) continue
+            when (val v = sanitize(key, json.optDouble(key, Double.NaN))) {
+                is Int -> editor.putInt(key, v)
+                is Float -> editor.putFloat(key, v)
+                else -> {}
+            }
         }
+        editor.apply()
+    }
+
+    /** 应用壁纸：一次写入图片和深度图，壁纸服务只会收到一组改动 */
+    fun setWallpaper(image: String, depthFile: String) {
+        prefs.edit()
+            .putString(KEY_CURRENT_IMAGE, image)
+            .putString(KEY_DEPTH_FILE, depthFile)
+            .apply()
+    }
+
+    fun registerListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+    }
+
+    fun unregisterListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
+        prefs.unregisterOnSharedPreferenceChangeListener(listener)
     }
 
     /** 获取 SharedPreferences.Editor 用于部分更新 */
-    fun edit(): SharedPreferences.Editor {
-        return prefs.edit()
-    }
+    fun edit(): SharedPreferences.Editor = prefs.edit()
 
     /** 读取单个字符串值 */
-    fun getString(key: String, default: String = ""): String {
-        return prefs.getString(key, default) ?: default
-    }
-
-    /** 读取单个整数值 */
-    fun getInt(key: String, default: Int = 0): Int {
-        return prefs.getInt(key, default)
-    }
+    fun getString(key: String, default: String = ""): String = prefs.getString(key, default) ?: default
 
     /** 读取单个浮点值 */
-    fun getFloat(key: String, default: Float = 0f): Float {
-        return prefs.getFloat(key, default)
-    }
-
-    /** 读取单个布尔值 */
-    fun getBoolean(key: String, default: Boolean = false): Boolean {
-        return prefs.getBoolean(key, default)
-    }
+    fun getFloat(key: String, default: Float = 0f): Float = prefs.getFloat(key, default)
 }

@@ -45,8 +45,8 @@
 
         try {
             var config = JSON.parse(configJson);
-            if (config.parallaxMultiplier) WallpaperConfig.parallaxMultiplier = config.parallaxMultiplier;
-            if (config.smoothness !== undefined) WallpaperConfig.smoothness = config.smoothness;
+            // 强度、跟手程度、对焦深度；之后的改动由 Kotlin 推 CoreEngine.setParams
+            CoreEngine.setParams(config);
             if (config.currentImage) currentWallpaperFile = config.currentImage;
             if (config.depthFile) currentDepthFile = config.depthFile;
         } catch (e) {

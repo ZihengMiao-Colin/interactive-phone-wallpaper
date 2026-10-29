@@ -49,24 +49,11 @@ class AppBridge(
         return configManager.getAll().toString()
     }
 
+    /** 保存参数（只认参数键，currentImage / depthFile 要走 applyWallpaper） */
     @JavascriptInterface
     fun saveConfig(json: String) {
         try {
-            val config = JSONObject(json)
-            val editor = configManager.edit()
-            if (config.has("parallaxMultiplier"))
-                editor.putInt("parallaxMultiplier", config.getInt("parallaxMultiplier"))
-            if (config.has("smoothness"))
-                editor.putFloat("smoothness", config.getDouble("smoothness").toFloat())
-            if (config.has("deadZoneDeg"))
-                editor.putFloat("deadZoneDeg", config.getDouble("deadZoneDeg").toFloat())
-            if (config.has("maxTiltDeg"))
-                editor.putFloat("maxTiltDeg", config.getDouble("maxTiltDeg").toFloat())
-            if (config.has("currentImage"))
-                editor.putString("currentImage", config.getString("currentImage"))
-            if (config.has("depthFile"))
-                editor.putString("depthFile", config.getString("depthFile"))
-            editor.apply()
+            configManager.applyParams(JSONObject(json))
         } catch (e: Exception) {
             android.util.Log.e("[AppBridge]", "saveConfig error", e)
         }

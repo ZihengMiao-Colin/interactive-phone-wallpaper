@@ -3,6 +3,7 @@ package com.wallpaper.live3d.wallpaper
 import android.annotation.SuppressLint
 import android.app.Presentation
 import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
@@ -64,6 +65,27 @@ class LiveWallpaperService : WallpaperService() {
         private var displayHeight = 0
         private var displayDensityDpi = 320
 
+        // ---- 配置实时同步：App 里调参数、应用壁纸后马上推给壁纸页 ----
+
+        /** 上次推给 JS 的图片和深度图（变可见时和配置对比，不同就重新推） */
+        private var pushedImage: String? = null
+        private var pushedDepth: String? = null
+
+        /** 图片和深度图一起变时只重载一次 */
+        private val initRunnable = Runnable { pushWallpaperInit() }
+
+        /** SharedPreferences 只弱引用监听器，必须存成字段 */
+        private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            when (key) {
+                in ConfigManager.RENDER_KEYS -> pushParams()
+                ConfigManager.KEY_CURRENT_IMAGE, ConfigManager.KEY_DEPTH_FILE -> {
+                    mainHandler.removeCallbacks(initRunnable)
+                    mainHandler.post(initRunnable)
+                }
+                // 静止范围 / 最大倾斜由 SensorHelper 每次事件自己读，不用推
+            }
+        }
+
         // ==================== Lifecycle: onCreate ====================
 
         override fun onCreate(surfaceHolder: SurfaceHolder) {
@@ -81,6 +103,8 @@ class LiveWallpaperService : WallpaperService() {
 
             // 初始化传感器
             sensorHelper = SensorHelper(this@LiveWallpaperService, configManager)
+
+            configManager.registerListener(prefListener)
         }
 
         // ==================== Lifecycle: onSurfaceCreated ====================
@@ -116,6 +140,8 @@ class LiveWallpaperService : WallpaperService() {
         // ==================== Lifecycle: onDestroy ====================
 
         override fun onDestroy() {
+            configManager.unregisterListener(prefListener)
+            mainHandler.removeCallbacks(initRunnable)
             stopSensor()
             mainHandler.post {
                 destroyVirtualDisplay()
@@ -131,6 +157,11 @@ class LiveWallpaperService : WallpaperService() {
             mainHandler.post {
                 if (visible) {
                     presentation?.handleResume()
+                    // 不可见期间配置可能变了：回到桌面时保证是最新的
+                    pushParams()
+                    val image = configManager.getString(ConfigManager.KEY_CURRENT_IMAGE)
+                    val depth = configManager.getString(ConfigManager.KEY_DEPTH_FILE)
+                    if (image != pushedImage || depth != pushedDepth) pushWallpaperInit()
                     pushToJs("if(window.CoreEngine) CoreEngine.resume();")
                     startSensor()
                 } else {
@@ -269,14 +300,15 @@ class LiveWallpaperService : WallpaperService() {
             val currentImage = configManager.getString(
                 ConfigManager.KEY_CURRENT_IMAGE, ""
             )
+            val depthFile = configManager.getString(
+                ConfigManager.KEY_DEPTH_FILE, ""
+            )
+            pushedImage = currentImage
+            pushedDepth = depthFile
             if (currentImage.isEmpty()) {
                 android.util.Log.w("[Wallpaper]", "尚未选择壁纸图片，跳过 init")
                 return
             }
-
-            val depthFile = configManager.getString(
-                ConfigManager.KEY_DEPTH_FILE, ""
-            )
 
             val assetBase = "https://${ASSET_DOMAIN}${ASSET_PATH_PREFIX}"
             val bgUrl = escapeJs("$assetBase/wallpapers/$currentImage")
@@ -292,6 +324,11 @@ class LiveWallpaperService : WallpaperService() {
 
             android.util.Log.d("[Wallpaper]", "推送 startWallpaper: bg=$bgUrl depth=$depthUrl")
             pushToJs(initScript)
+        }
+
+        /** 把强度、跟手程度、对焦深度推给 JS（CoreEngine.setParams 会唤醒渲染） */
+        private fun pushParams() {
+            pushToJs("if(window.CoreEngine) CoreEngine.setParams(${configManager.paramsJson()});")
         }
 
         private fun escapeJs(s: String): String {
@@ -376,13 +413,15 @@ class LiveWallpaperService : WallpaperService() {
             /** WebView onResume — 由 Engine.onVisibilityChanged 调用 */
             fun handleResume() {
                 presentationWebView?.onResume()
-                presentationWebView?.resumeTimers()
             }
 
-            /** WebView onPause — 由 Engine.onVisibilityChanged 调用 */
+            /**
+             * WebView onPause — 由 Engine.onVisibilityChanged 调用。
+             * 不能调 pauseTimers()：它对整个进程的 WebView 生效，打开 App 时壁纸变成不可见，
+             * 会把 App 页面的定时器也冻住（节流保存、提示条都不触发）。渲染由 CoreEngine.pause() 停掉。
+             */
             fun handlePause() {
                 presentationWebView?.onPause()
-                presentationWebView?.pauseTimers()
             }
 
             /** 销毁 WebView */
