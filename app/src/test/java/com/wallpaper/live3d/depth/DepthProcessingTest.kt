@@ -42,6 +42,15 @@ class DepthProcessingTest {
     }
 
     @Test
+    fun sampleSizeFor_capsLongestSide() {
+        assertEquals(1, D.sampleSizeFor(4096, 2000))
+        assertEquals(2, D.sampleSizeFor(4097, 100))
+        assertEquals(2, D.sampleSizeFor(8000, 6000))
+        assertEquals(4, D.sampleSizeFor(12000, 9000))
+        assertEquals(1, D.sampleSizeFor(1080, 2340))
+    }
+
+    @Test
     fun roundHalfEven_matchesPython() {
         val out = doubleArrayOf(0.5, 1.5, 2.5, 3.5, 2.4, 2.6).map { D.roundHalfEven(it) }
         assertEquals(listOf(0, 2, 2, 4, 2, 3), out)

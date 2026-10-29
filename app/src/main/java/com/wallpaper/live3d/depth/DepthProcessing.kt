@@ -44,6 +44,16 @@ object DepthProcessing {
         return Pair(max(1, roundHalfEven(width * scale)), max(1, roundHalfEven(height * scale)))
     }
 
+    /** 解码时允许的最长边：手机拍的大图整张转成 RGBA 要一百多 MB，先降采样防内存溢出 */
+    const val DECODE_MAX_SIDE = 4096
+
+    /** BitmapFactory 的 inSampleSize（2 的幂）：解码后最长边不超过 maxSide */
+    fun sampleSizeFor(width: Int, height: Int, maxSide: Int = DECODE_MAX_SIDE): Int {
+        var sample = 1
+        while (max(width, height) / sample > maxSide) sample *= 2
+        return sample
+    }
+
     // ==================== Pillow 兼容的 bicubic 缩放 ====================
 
     /** Pillow 的 bicubic 核（a = -0.5，支撑半径 2） */

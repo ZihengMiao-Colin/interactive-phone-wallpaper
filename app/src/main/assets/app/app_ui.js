@@ -272,7 +272,7 @@
                 $('image-info').textContent = '[AI 超时] 30 秒未响应，降级使用传统 CV 深度估计';
                 generateSimpleDepthMap();
             }, 30000);
-            AppBridge.generateAIDepthMap(currentWallpaperFile);
+            AppBridge.generateAIDepthMap(currentWallpaperFile, 8);
         } else {
             // 降级：传统 CV 算法
             console.log('[AppUI] AppBridge.generateAIDepthMap 不可用，降级到 CV 算法');

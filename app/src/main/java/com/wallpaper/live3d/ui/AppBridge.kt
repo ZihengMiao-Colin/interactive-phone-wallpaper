@@ -183,13 +183,15 @@ class AppBridge(
 
     /**
      * 使用 Depth Anything V2 AI 模型生成深度图。
-     * 在后台线程执行 ONNX 推理，完成后通过 JS 回调 window.onAIDepthReady() 通知。
+     * 在后台线程执行 ONNX 推理，进度通过 window.onDepthProgress(percent, text) 通知，
+     * 完成后通过 window.onAIDepthReady(fileName, error) 通知。
      *
-     * @param imageName 壁纸文件名 (如 "cropped_wallpaper_123.jpg")
+     * @param imageName 壁纸文件名
+     * @param blurRadius 边缘平滑半径（像素）
      */
     @JavascriptInterface
-    fun generateAIDepthMap(imageName: String) {
-        android.util.Log.d("[AppBridge]", "generateAIDepthMap: $imageName")
+    fun generateAIDepthMap(imageName: String, blurRadius: Int) {
+        android.util.Log.d("[AppBridge]", "generateAIDepthMap: $imageName (blur $blurRadius)")
         scope.launch {
             try {
                 val wallpapersDir = java.io.File(activity.filesDir, "wallpapers")
@@ -201,7 +203,13 @@ class AppBridge(
                 }
 
                 val cacheDir = java.io.File(activity.filesDir, "depth_cache")
-                val depthFileName = depthEstimator.estimateDepth(imageFile, cacheDir)
+                val depthFileName = depthEstimator.estimateDepth(imageFile, cacheDir, blurRadius) { percent, text ->
+                    activity.runOnUiThread {
+                        webView.evaluateJavascript(
+                            "window.onDepthProgress && window.onDepthProgress($percent, ${JSONObject.quote(text)})", null
+                        )
+                    }
+                }
 
                 if (depthFileName != null) {
                     // 更新配置
