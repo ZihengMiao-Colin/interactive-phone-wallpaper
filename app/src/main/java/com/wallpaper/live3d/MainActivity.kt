@@ -19,7 +19,9 @@ import androidx.core.view.WindowInsetsCompat
 import com.wallpaper.live3d.config.ConfigManager
 import com.wallpaper.live3d.ui.AppBridge
 import com.wallpaper.live3d.ui.WebViewSetup
+import com.wallpaper.live3d.util.PickerRoute
 import com.wallpaper.live3d.util.SensorHelper
+import com.wallpaper.live3d.util.WallpaperPicker
 import com.wallpaper.live3d.util.WallpaperFiles
 import com.wallpaper.live3d.wallpaper.LiveWallpaperService
 import java.io.File
@@ -150,23 +152,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 跳到本应用的动态壁纸预览页；系统不支持时依次退到动态壁纸列表、通用壁纸选择器。
+     * 打开系统的动态壁纸设置：一般手机直接进本应用的预览页，小米上打开动态壁纸列表（原因见 WallpaperPicker）。
+     * 启动失败时按顺序退到下一种。
      */
     fun openLiveWallpaperPicker() {
-        val attempts = listOf(
-            Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).putExtra(
-                WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                ComponentName(this, LiveWallpaperService::class.java),
-            ),
-            Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER),
-            Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), "选择壁纸"),
-        )
-        for (intent in attempts) {
+        val isXiaomi = Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
+        for (route in WallpaperPicker.routes(isXiaomi)) {
+            val intent = when (route) {
+                PickerRoute.CHANGE_LIVE_WALLPAPER -> Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).putExtra(
+                    WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+                    ComponentName(this, LiveWallpaperService::class.java),
+                )
+                PickerRoute.LIVE_WALLPAPER_CHOOSER -> Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
+                PickerRoute.SET_WALLPAPER_CHOOSER -> Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), "选择壁纸")
+            }
             try {
                 startActivity(intent)
+                if (route == PickerRoute.LIVE_WALLPAPER_CHOOSER) {
+                    // 列表里有很多动态壁纸，告诉用户点哪个（原生 Toast，盖在系统列表上面也看得到）
+                    Toast.makeText(this, "在列表里选「${getString(R.string.app_name)}」，再点「设置壁纸」", Toast.LENGTH_LONG).show()
+                }
                 return
             } catch (e: Exception) {
-                android.util.Log.w("[MainActivity]", "无法打开 ${intent.action}: ${e.message}")
+                android.util.Log.w("[MainActivity]", "无法打开 $route: ${e.message}")
             }
         }
         Toast.makeText(this, "无法打开壁纸设置，请在系统设置里选择动态壁纸", Toast.LENGTH_LONG).show()
