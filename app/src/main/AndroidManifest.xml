@@ -17,16 +17,6 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
-    <!-- 恢复原来的壁纸：设置静态图片 / 恢复系统默认（普通权限，安装即授予） -->
-    <uses-permission android:name="android.permission.SET_WALLPAPER" />
-
-    <!-- 安卓 11+ 的包可见性：要能查到其他动态壁纸的名字和是否系统应用（恢复原来的动态壁纸用） -->
-    <queries>
-        <intent>
-            <action android:name="android.service.wallpaper.WallpaperService" />
-        </intent>
-    </queries>
-
     <!-- ==================== 硬件特性 ==================== -->
 
     <!-- 陀螺仪不是必须的 (可以用触摸降级) -->

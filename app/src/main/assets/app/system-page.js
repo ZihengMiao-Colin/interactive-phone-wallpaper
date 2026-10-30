@@ -36,44 +36,26 @@
     }
 
     // ==================== 恢复原来的壁纸 ====================
-    // 原来是动态壁纸 → 跳到它的系统预览页；原来是静态图片并且设之前备份过 → 一键换回；
-    // 没有备份 → 打开系统壁纸设置（小米是"系统个性化"页）让用户自己选。只改桌面，锁屏不动。
-    // 安卓 13 起普通应用读不到当前壁纸的图片，所以静态图片要靠设之前的备份（见 backup-prompt.js）。
+    // 安卓不允许普通应用读当前壁纸的图片，没法自动换回原来的壁纸；
+    // 这里直接打开系统的壁纸设置（小米是"系统个性化"页，其他手机是系统的"设置壁纸"），让用户自己选回去。
 
     function renderRestore() {
-        const previous = Bridge.getPreviousWallpaper();
         const active = App.state.status.wallpaperActive;
         $('sys-restore-btn').disabled = !active;
-        let text;
-        if (!active) text = '本应用不是当前桌面壁纸，不用恢复';
-        else if (previous.kind === 'live') text = '原来是动态壁纸「' + previous.label + '」，点恢复跳到它的设置页';
-        else if (Bridge.getBackup()) text = '已备份原来的壁纸，点恢复一键换回';
-        else text = '没有备份原图，点恢复打开系统壁纸设置自己选';
-        $('sys-restore-text').textContent = text;
+        $('sys-restore-text').textContent = active
+            ? '打开系统壁纸设置，在里面选回原来的壁纸'
+            : '本应用不是当前桌面壁纸，不用恢复';
     }
 
     function restore() {
-        // 跳到系统页面的两种情况，回来时 onAppResume 会刷新状态；"backup" 的结果走 onRestoreDone
-        if (Bridge.restorePrevious() === 'failed') Shell.toast('打不开系统壁纸设置', 'error');
-    }
-
-    /** MainActivity 把备份设成桌面壁纸后调用 */
-    window.onRestoreDone = (ok, message) => {
-        if (ok) Shell.toast('已换回原来的壁纸', 'ok');
-        else Shell.toast('恢复失败：' + (message || '未知错误'), 'error');
-        App.refreshStatus();
-    };
-
-    /** 设为壁纸：本应用还不是壁纸时，先问要不要备份原来的静态壁纸 */
-    async function setAsWallpaper() {
-        if (!App.state.status.wallpaperActive && !(await BackupPrompt.beforeSetWallpaper())) return;
-        Bridge.openLiveWallpaperPicker();
+        // 回来时 onAppResume 会刷新状态
+        if (!Bridge.openSystemWallpaperSettings()) Shell.toast('打不开系统壁纸设置', 'error');
     }
 
     App.registerPage({
         name: 'system',
         init() {
-            $('sys-wp-btn').addEventListener('click', setAsWallpaper);
+            $('sys-wp-btn').addEventListener('click', () => Bridge.openLiveWallpaperPicker());
             $('sys-batt-btn').addEventListener('click', () => Bridge.requestBatteryOptimizationBypass());
             $('sys-restore-btn').addEventListener('click', restore);
             App.on('status', render);

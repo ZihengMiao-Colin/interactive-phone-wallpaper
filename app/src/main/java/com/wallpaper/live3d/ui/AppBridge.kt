@@ -9,8 +9,6 @@ import com.wallpaper.live3d.MainActivity
 import com.wallpaper.live3d.config.ConfigManager
 import com.wallpaper.live3d.depth.DepthEstimator
 import com.wallpaper.live3d.util.FileUtils
-import com.wallpaper.live3d.util.PreviousWallpaper
-import com.wallpaper.live3d.util.WallpaperBackup
 import com.wallpaper.live3d.util.WallpaperFiles
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -193,58 +191,17 @@ class AppBridge(
 
     // ==================== 恢复原来的壁纸 ====================
 
-    /**
-     * 设置本应用之前的桌面壁纸：{"kind": "live", "label": 名字} / {"kind": "static"} / {"kind": "unknown"}。
-     * 记录的动态壁纸已经卸载时按 unknown 处理。
-     */
+    /** 打开系统壁纸设置（小米是"系统个性化"页），让用户自己换回原来的壁纸。打不开返回 false */
     @JavascriptInterface
-    fun getPreviousWallpaper(): String {
-        val out = JSONObject()
-        when (val prev = configManager.previousWallpaper()) {
-            is PreviousWallpaper.Live -> {
-                val label = activity.wallpaperLabel(prev.component)
-                if (label != null) out.put("kind", "live").put("label", label) else out.put("kind", "unknown")
-            }
-            PreviousWallpaper.Static -> out.put("kind", "static")
-            PreviousWallpaper.Unknown -> out.put("kind", "unknown")
-        }
-        return out.toString()
-    }
-
-    /** 当前桌面壁纸："ours" / "live" / "static"（设本应用之前要不要提示备份原图看这个） */
-    @JavascriptInterface
-    fun getCurrentWallpaperKind(): String = activity.currentWallpaperKind().name.lowercase()
-
-    /** 原来那张静态壁纸的备份文件名（在 /local/original_wallpaper/ 下）；没有时返回空串 */
-    @JavascriptInterface
-    fun getBackup(): String = WallpaperBackup.current(activity.backupDir)?.name ?: ""
-
-    /** 从相册选出现在用的壁纸存成备份，结果 → window.onBackupDone(name, error) */
-    @JavascriptInterface
-    fun pickBackupImage() {
-        activity.runOnUiThread { activity.pickBackupImage() }
-    }
-
-    /** 不备份：删掉旧备份，免得以后恢复成一张过时的图 */
-    @JavascriptInterface
-    fun clearBackup() {
-        WallpaperBackup.clear(activity.backupDir)
-    }
-
-    /**
-     * 恢复原来的壁纸。返回 "live" / "backup"（结果 → window.onRestoreDone）/ "settings" / "failed"，
-     * 含义见 MainActivity.restorePrevious。
-     */
-    @JavascriptInterface
-    fun restorePrevious(): String {
-        var result = "failed"
+    fun openSystemWallpaperSettings(): Boolean {
+        var opened = false
         val latch = java.util.concurrent.CountDownLatch(1)
         activity.runOnUiThread {
-            result = activity.restorePrevious()
+            opened = activity.openSystemWallpaperSettings()
             latch.countDown()
         }
         latch.await(3, java.util.concurrent.TimeUnit.SECONDS)
-        return result
+        return opened
     }
 
     /** {"wallpaperActive": Boolean, "batteryOptimizationIgnored": Boolean} */

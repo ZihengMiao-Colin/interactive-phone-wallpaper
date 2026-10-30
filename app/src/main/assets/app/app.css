@@ -167,42 +167,6 @@ h1, h2, p { margin: 0; }
 .kv span:first-child { flex-shrink: 0; color: var(--text-2); }
 .kv span:last-child { text-align: right; }
 
-/* ---------- 底部选择菜单（恢复原来的壁纸） ---------- */
-.sheet-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 25;
-    display: flex;
-    align-items: flex-end;
-    background: rgba(0, 0, 0, 0.5);
-}
-.sheet-backdrop[hidden] { display: none; }
-.sheet {
-    display: grid;
-    gap: 10px;
-    width: 100%;
-    padding: 18px 16px 20px;
-    border-top: 1px solid var(--line-strong);
-    border-radius: 16px 16px 0 0;
-    background: var(--surface);
-}
-.sheet-title { font-size: 16px; font-weight: 600; }
-.sheet-note { margin-bottom: 4px; color: var(--text-3); font-size: 12px; }
-.backup-current {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: var(--text-2);
-    font-size: 13px;
-}
-.backup-current img {
-    width: 56px;
-    height: 120px;
-    object-fit: cover;
-    border: 1px solid var(--line-strong);
-    border-radius: 8px;
-}
-
 /* ---------- 顶栏状态胶囊 ---------- */
 .status-chip { height: 24px; padding: 0 10px; font-size: 12px; }
 .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }

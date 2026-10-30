@@ -12,6 +12,15 @@ enum class PickerRoute {
     SET_WALLPAPER_CHOOSER,
 }
 
+/** 打开系统壁纸设置（让用户自己换回原来的壁纸）的方式 */
+enum class SettingsRoute {
+    /** 小米"系统个性化"页：theme://zhuti.xiaomi.com/personalize（主题应用对外开放的链接） */
+    XIAOMI_PERSONALIZE,
+
+    /** 安卓标准的"设置壁纸"（Intent.ACTION_SET_WALLPAPER） */
+    SET_WALLPAPER,
+}
+
 object WallpaperPicker {
 
     /**
@@ -29,13 +38,10 @@ object WallpaperPicker {
         }
 
     /**
-     * 恢复原来的动态壁纸时的打开方式。小米只对第三方壁纸查 AppOp 10045，
-     * 系统自带的（Mi Wallpaper、主题壁纸等）可以直接进它的预览页。
+     * "恢复原来的壁纸"打开系统壁纸设置的方式（按顺序，前一种打不开才用下一种）。
+     * 小米：系统个性化页；其他手机：安卓标准的"设置壁纸"，各品牌会打开自己的壁纸设置
+     * （有多个应用能处理时系统会先弹列表让用户选）。
      */
-    fun restoreRoutes(isXiaomi: Boolean, isSystemPackage: Boolean): List<PickerRoute> =
-        if (isXiaomi && !isSystemPackage) {
-            listOf(PickerRoute.LIVE_WALLPAPER_CHOOSER)
-        } else {
-            listOf(PickerRoute.CHANGE_LIVE_WALLPAPER, PickerRoute.LIVE_WALLPAPER_CHOOSER)
-        }
+    fun systemSettingsRoutes(isXiaomi: Boolean): List<SettingsRoute> =
+        if (isXiaomi) listOf(SettingsRoute.XIAOMI_PERSONALIZE, SettingsRoute.SET_WALLPAPER) else listOf(SettingsRoute.SET_WALLPAPER)
 }
