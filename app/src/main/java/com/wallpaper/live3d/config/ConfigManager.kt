@@ -23,10 +23,9 @@ import org.json.JSONObject
  * SharedPreferences 在进程内是单例：不同 ConfigManager 实例写的改动，
  * 其他实例注册的监听器都能收到（壁纸服务靠这个实时同步）。
  */
-class ConfigManager(context: Context) {
+class ConfigManager(private val prefs: SharedPreferences) {
 
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    constructor(context: Context) : this(context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE))
 
     companion object {
         private const val PREFS_NAME = "wallpaper3d_config"
@@ -78,8 +77,9 @@ class ConfigManager(context: Context) {
     /** 返回所有配置 */
     fun getAll(): JSONObject = JSONObject().apply {
         for (key in PARAM_KEYS) put(key, param(key))
-        put(KEY_CURRENT_IMAGE, getString(KEY_CURRENT_IMAGE))
-        put(KEY_DEPTH_FILE, getString(KEY_DEPTH_FILE))
+        // 必须写明 this@ConfigManager：apply 里直接写 getString 会调到 JSONObject.getString（抛异常）
+        put(KEY_CURRENT_IMAGE, this@ConfigManager.getString(KEY_CURRENT_IMAGE))
+        put(KEY_DEPTH_FILE, this@ConfigManager.getString(KEY_DEPTH_FILE))
         put(KEY_HIDE_DEBUG, prefs.getBoolean(KEY_HIDE_DEBUG, true))
     }
 

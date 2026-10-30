@@ -32,6 +32,23 @@ class ConfigManagerTest {
     }
 
     @Test
+    fun getAll_includesWallpaperFiles() {
+        val config = ConfigManager(FakeSharedPreferences())
+        config.setWallpaper("wp_1.jpg", "depth_1.png")
+        val all = config.getAll()
+        assertEquals("wp_1.jpg", all.getString(ConfigManager.KEY_CURRENT_IMAGE))
+        assertEquals("depth_1.png", all.getString(ConfigManager.KEY_DEPTH_FILE))
+        assertEquals(10, all.getInt(ConfigManager.KEY_PARALLAX))
+    }
+
+    @Test
+    fun getAll_freshInstallHasEmptyWallpaper() {
+        val all = ConfigManager(FakeSharedPreferences()).getAll()
+        assertEquals("", all.getString(ConfigManager.KEY_CURRENT_IMAGE))
+        assertEquals("", all.getString(ConfigManager.KEY_DEPTH_FILE))
+    }
+
+    @Test
     fun keySets() {
         assertEquals(6, ConfigManager.PARAM_KEYS.size)
         assertEquals(

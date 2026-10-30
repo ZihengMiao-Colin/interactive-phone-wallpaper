@@ -67,6 +67,8 @@ dependencies {
 
     // Testing
     testImplementation("junit:junit:4.13.2")
+    // JVM 单元测试里 android.jar 的 org.json 只是空壳，换成真的实现
+    testImplementation("org.json:json:20240303")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 }
