@@ -144,14 +144,19 @@
 
     <div id="toast" class="toast glass" role="status" hidden></div>
 
-    <!-- ====== 恢复原来的壁纸：原来是静态图片时的选择 ====== -->
-    <div id="restore-sheet" class="sheet-backdrop" hidden>
-        <div class="sheet" role="dialog" aria-labelledby="restore-sheet-title">
-            <h2 class="sheet-title" id="restore-sheet-title">恢复原来的壁纸</h2>
-            <p class="sheet-note" id="restore-sheet-note"></p>
-            <button type="button" class="btn block" id="restore-pick"><svg class="i"><use href="#i-image"/></svg>从相册选择…</button>
-            <button type="button" class="btn block" id="restore-default"><svg class="i"><use href="#i-rotate-ccw"/></svg>恢复系统默认壁纸</button>
-            <button type="button" class="btn ghost block" id="restore-cancel">取消</button>
+    <!-- ====== 设为壁纸之前：备份原来那张静态壁纸 ====== -->
+    <div id="backup-sheet" class="sheet-backdrop" hidden>
+        <div class="sheet" role="dialog" aria-labelledby="backup-sheet-title">
+            <h2 class="sheet-title" id="backup-sheet-title">先备份你现在的壁纸？</h2>
+            <p class="sheet-note">安卓不允许 App 直接读取壁纸。从相册选出你现在用的那张图存一份，以后在「设置」里可以一键换回。</p>
+            <div class="backup-current" id="backup-current" hidden>
+                <img id="backup-thumb" alt="已备份的原壁纸">
+                <span>已备份的原壁纸</span>
+            </div>
+            <button type="button" class="btn primary block" id="backup-use" hidden>用这张备份</button>
+            <button type="button" class="btn block" id="backup-pick"><svg class="i"><use href="#i-image"/></svg><span>从相册选择…</span></button>
+            <button type="button" class="btn block" id="backup-skip">不备份，直接设置</button>
+            <button type="button" class="btn ghost block" id="backup-cancel">取消</button>
         </div>
     </div>
 
@@ -196,6 +201,7 @@
     <script src="main.js"></script>
     <script src="preview.js"></script>
     <script src="cropper.js"></script>
+    <script src="backup-prompt.js"></script>
 
     <!-- 页面 -->
     <script src="wallpaper-page.js"></script>

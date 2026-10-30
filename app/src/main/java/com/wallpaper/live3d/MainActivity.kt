@@ -23,8 +23,12 @@ import kotlinx.coroutines.withContext
 import com.wallpaper.live3d.config.ConfigManager
 import com.wallpaper.live3d.ui.AppBridge
 import com.wallpaper.live3d.ui.WebViewSetup
+import com.wallpaper.live3d.util.CurrentWallpaper
 import com.wallpaper.live3d.util.PickerRoute
 import com.wallpaper.live3d.util.PreviousWallpaper
+import com.wallpaper.live3d.util.RestoreAction
+import com.wallpaper.live3d.util.RestorePlan
+import com.wallpaper.live3d.util.WallpaperBackup
 import com.wallpaper.live3d.util.SensorHelper
 import com.wallpaper.live3d.util.WallpaperPicker
 import com.wallpaper.live3d.util.WallpaperFiles
@@ -55,19 +59,31 @@ class MainActivity : AppCompatActivity() {
         uri?.let { appBridge.onImageSelected(it) }
     }
 
-    // 恢复原来的壁纸：从相册选一张，直接设成桌面静态壁纸
-    private val restoreImageLauncher = registerForActivityResult(
+    // 备份原来的壁纸：设本应用之前，让用户从相册选出现在用的那张图，存一份到 App 私有目录
+    private val backupImageLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri == null) {
-            notifyRestore(false, null)   // 取消选择，不提示
+            notifyBackup(null, null)   // 取消选择，不提示
             return@registerForActivityResult
         }
-        changeHomeWallpaper { wm ->
-            contentResolver.openInputStream(uri)?.use { wm.setStream(it, null, true, WallpaperManager.FLAG_SYSTEM) }
-                ?: throw IllegalStateException("无法打开图片")
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = try {
+                val ext = (contentResolver.getType(uri)?.substringAfter('/') ?: "jpg")
+                    .takeIf { it.length <= 5 && it.all(Char::isLetterOrDigit) } ?: "jpg"
+                val name = contentResolver.openInputStream(uri)?.use { WallpaperBackup.save(it, backupDir, ext) }
+                    ?: throw IllegalStateException("无法打开图片")
+                Pair(name, null)
+            } catch (e: Throwable) {
+                android.util.Log.e("[MainActivity]", "备份原壁纸失败", e)
+                Pair(null, e.message ?: e.javaClass.simpleName)
+            }
+            withContext(Dispatchers.Main) { notifyBackup(result.first, result.second) }
         }
     }
+
+    /** 原来那张静态壁纸的备份目录（WebViewAssetLoader 的 /local/original_wallpaper/） */
+    val backupDir: File get() = File(filesDir, "original_wallpaper")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -250,14 +266,51 @@ class MainActivity : AppCompatActivity() {
         return false
     }
 
-    /** 原来是静态图片：从相册选一张设成桌面壁纸（结果 → window.onRestoreDone） */
-    fun pickRestoreImage() {
-        restoreImageLauncher.launch("image/*")
+    /** 当前的桌面壁纸是本应用、别的动态壁纸，还是静态图片 */
+    fun currentWallpaperKind(): CurrentWallpaper = RestorePlan.currentKind(
+        WallpaperManager.getInstance(this).wallpaperInfo?.component?.flattenToString(),
+        ComponentName(this, LiveWallpaperService::class.java).flattenToString(),
+    )
+
+    /** 从相册选出现在用的壁纸，存成备份（结果 → window.onBackupDone） */
+    fun pickBackupImage() {
+        backupImageLauncher.launch("image/*")
     }
 
-    /** 恢复系统默认的桌面壁纸（锁屏不动） */
-    fun restoreDefaultWallpaper() {
-        changeHomeWallpaper { wm -> wm.clear(WallpaperManager.FLAG_SYSTEM) }
+    /**
+     * 恢复原来的壁纸（只改桌面，锁屏不动）。
+     * @return "live"（打开了原动态壁纸的预览页）/ "backup"（正在设备份，结果 → window.onRestoreDone）/
+     *         "settings"（没有备份，打开了系统壁纸设置）/ "failed"
+     */
+    fun restorePrevious(): String {
+        val previous = ConfigManager(this).previousWallpaper()
+        val backup = WallpaperBackup.current(backupDir)
+        return when (RestorePlan.decide(previous, backup != null)) {
+            RestoreAction.OPEN_PREVIOUS_LIVE -> if (restorePreviousLive()) "live" else "failed"
+            RestoreAction.SET_BACKUP -> {
+                changeHomeWallpaper { wm -> backup!!.inputStream().use { wm.setStream(it, null, true, WallpaperManager.FLAG_SYSTEM) } }
+                "backup"
+            }
+            RestoreAction.OPEN_SYSTEM_SETTINGS -> if (openSystemWallpaperSettings()) "settings" else "failed"
+        }
+    }
+
+    /** 打开系统的壁纸设置：小米是"系统个性化"页（可以从外部打开的链接），别的手机用通用壁纸选择器 */
+    private fun openSystemWallpaperSettings(): Boolean {
+        val intents = buildList {
+            if (isXiaomi()) add(Intent(Intent.ACTION_VIEW, Uri.parse("theme://zhuti.xiaomi.com/personalize")))
+            add(Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), "选择壁纸"))
+        }
+        for (intent in intents) {
+            try {
+                startActivity(intent)
+                Toast.makeText(this, "没有备份原图，请在这里选回原来的壁纸", Toast.LENGTH_LONG).show()
+                return true
+            } catch (e: Exception) {
+                android.util.Log.w("[MainActivity]", "无法打开壁纸设置: ${e.message}")
+            }
+        }
+        return false
     }
 
     /** 在后台线程改桌面壁纸（只改桌面，锁屏不动），完成后通知页面 */
@@ -274,10 +327,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** window.onRestoreDone(ok, message)：message 为 null 表示用户取消，不用提示 */
+    /** window.onRestoreDone(ok, message) */
     private fun notifyRestore(ok: Boolean, message: String?) {
         val msg = message?.let { org.json.JSONObject.quote(it) } ?: "null"
         webView.evaluateJavascript("window.onRestoreDone && window.onRestoreDone($ok, $msg)", null)
+    }
+
+    /** window.onBackupDone(name, error)：两个都是 null 表示用户取消了选图 */
+    private fun notifyBackup(name: String?, error: String?) {
+        val n = name?.let { org.json.JSONObject.quote(it) } ?: "null"
+        val e = error?.let { org.json.JSONObject.quote(it) } ?: "null"
+        webView.evaluateJavascript("window.onBackupDone && window.onBackupDone($n, $e)", null)
     }
 
     /** 跳转电池优化设置 */

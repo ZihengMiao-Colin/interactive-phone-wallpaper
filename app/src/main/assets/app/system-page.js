@@ -36,68 +36,46 @@
     }
 
     // ==================== 恢复原来的壁纸 ====================
-    // 安卓 13 起普通应用读不到当前壁纸的图片，所以原来是静态图片时只能让用户从相册选回那张图（或恢复系统默认）；
-    // 原来是动态壁纸时跳到它的系统预览页。只改桌面，锁屏不动。
-
-    /** 设置本应用之前的桌面壁纸，渲染时刷新 */
-    let previous = { kind: 'unknown' };
-
-    const RESTORE_TEXT = {
-        static: '原来是静态图片：从相册选回那张图，或恢复系统默认',
-        unknown: '没有记录到原来的壁纸：可以从相册选一张，或恢复系统默认',
-    };
+    // 原来是动态壁纸 → 跳到它的系统预览页；原来是静态图片并且设之前备份过 → 一键换回；
+    // 没有备份 → 打开系统壁纸设置（小米是"系统个性化"页）让用户自己选。只改桌面，锁屏不动。
+    // 安卓 13 起普通应用读不到当前壁纸的图片，所以静态图片要靠设之前的备份（见 backup-prompt.js）。
 
     function renderRestore() {
-        previous = Bridge.getPreviousWallpaper();
+        const previous = Bridge.getPreviousWallpaper();
         const active = App.state.status.wallpaperActive;
         $('sys-restore-btn').disabled = !active;
-        if (!active) $('sys-restore-text').textContent = '本应用不是当前桌面壁纸，不用恢复';
-        else if (previous.kind === 'live') $('sys-restore-text').textContent = '原来是动态壁纸「' + previous.label + '」';
-        else $('sys-restore-text').textContent = RESTORE_TEXT[previous.kind] || RESTORE_TEXT.unknown;
-    }
-
-    function showSheet(show) {
-        $('restore-sheet').hidden = !show;
+        let text;
+        if (!active) text = '本应用不是当前桌面壁纸，不用恢复';
+        else if (previous.kind === 'live') text = '原来是动态壁纸「' + previous.label + '」，点恢复跳到它的设置页';
+        else if (Bridge.getBackup()) text = '已备份原来的壁纸，点恢复一键换回';
+        else text = '没有备份原图，点恢复打开系统壁纸设置自己选';
+        $('sys-restore-text').textContent = text;
     }
 
     function restore() {
-        if (previous.kind === 'live') {
-            // 系统页面里点"设置壁纸"才真正换，回来时 onAppResume 会刷新状态
-            if (!Bridge.restorePreviousLive()) Shell.toast('打不开原来的动态壁纸，可能已经卸载', 'error');
-            return;
-        }
-        $('restore-sheet-note').textContent = (previous.kind === 'static'
-            ? '读不到你原来那张静态壁纸，可以从相册选回它。'
-            : '没有记录到原来的壁纸，可以从相册选一张。') + '只换桌面，锁屏不变。';
-        showSheet(true);
+        // 跳到系统页面的两种情况，回来时 onAppResume 会刷新状态；"backup" 的结果走 onRestoreDone
+        if (Bridge.restorePrevious() === 'failed') Shell.toast('打不开系统壁纸设置', 'error');
     }
 
-    /** MainActivity 改完桌面壁纸后调用：message 为 null 且 ok 为 false 表示用户取消了选图 */
+    /** MainActivity 把备份设成桌面壁纸后调用 */
     window.onRestoreDone = (ok, message) => {
-        showSheet(false);
-        if (ok) Shell.toast('已恢复桌面壁纸', 'ok');
-        else if (message) Shell.toast('恢复失败：' + message, 'error');
+        if (ok) Shell.toast('已换回原来的壁纸', 'ok');
+        else Shell.toast('恢复失败：' + (message || '未知错误'), 'error');
         App.refreshStatus();
     };
+
+    /** 设为壁纸：本应用还不是壁纸时，先问要不要备份原来的静态壁纸 */
+    async function setAsWallpaper() {
+        if (!App.state.status.wallpaperActive && !(await BackupPrompt.beforeSetWallpaper())) return;
+        Bridge.openLiveWallpaperPicker();
+    }
 
     App.registerPage({
         name: 'system',
         init() {
-            $('sys-wp-btn').addEventListener('click', () => Bridge.openLiveWallpaperPicker());
+            $('sys-wp-btn').addEventListener('click', setAsWallpaper);
             $('sys-batt-btn').addEventListener('click', () => Bridge.requestBatteryOptimizationBypass());
             $('sys-restore-btn').addEventListener('click', restore);
-            $('restore-pick').addEventListener('click', () => {
-                showSheet(false);
-                Bridge.pickRestoreImage();
-            });
-            $('restore-default').addEventListener('click', () => {
-                showSheet(false);
-                Bridge.restoreDefaultWallpaper();
-            });
-            $('restore-cancel').addEventListener('click', () => showSheet(false));
-            $('restore-sheet').addEventListener('click', (e) => {
-                if (e.target === $('restore-sheet')) showSheet(false);   // 点遮罩关闭
-            });
             App.on('status', render);
             App.on('applied', render);
             render();

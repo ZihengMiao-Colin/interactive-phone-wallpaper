@@ -6,6 +6,8 @@
  *   ?active=0    本应用不是当前桌面壁纸
  *   ?xiaomi=0    不是小米手机
  *   ?prev=live|static|unknown  设置本应用之前的壁纸（默认 static）
+ *   ?current=static|live       本应用不是壁纸时，当前壁纸的类型（默认 static）
+ *   ?backup=1                  已经备份过原壁纸
  */
 
 'use strict';
@@ -40,10 +42,15 @@ window.Bridge = (() => {
             requestBatteryOptimizationBypass: () => native.requestBatteryOptimizationBypass(),
             /** @returns {{kind: 'live'|'static'|'unknown', label?: string}} */
             getPreviousWallpaper: () => parse(native.getPreviousWallpaper(), { kind: 'unknown' }),
-            restorePreviousLive: () => native.restorePreviousLive(),
-            pickRestoreImage: () => native.pickRestoreImage(),
-            restoreDefaultWallpaper: () => native.restoreDefaultWallpaper(),
-            /** @param {'wallpapers'|'depth_cache'} dir */
+            /** @returns {'ours'|'live'|'static'} */
+            getCurrentWallpaperKind: () => native.getCurrentWallpaperKind(),
+            /** 原壁纸备份的文件名，没有时为空串 */
+            getBackup: () => native.getBackup(),
+            pickBackupImage: () => native.pickBackupImage(),
+            clearBackup: () => native.clearBackup(),
+            /** @returns {'live'|'backup'|'settings'|'failed'} */
+            restorePrevious: () => native.restorePrevious(),
+            /** @param {'wallpapers'|'depth_cache'|'original_wallpaper'} dir */
             localUrl: (dir, name) => LOCAL_BASE + dir + '/' + encodeURIComponent(name),
             log: (msg) => native.log(String(msg)),
         };
@@ -62,6 +69,8 @@ window.Bridge = (() => {
     };
     /** 裁剪结果：文件名 → dataUrl */
     const files = {};
+    /** 原壁纸备份 */
+    let backup = query.get('backup') === '1' ? 'sample.jpg' : '';
 
     return {
         isNative: false,
@@ -111,22 +120,32 @@ window.Bridge = (() => {
             const prev = query.get('prev') || 'static';
             return prev === 'live' ? { kind: 'live', label: 'Mi Wallpaper' } : { kind: prev };
         },
-        restorePreviousLive() {
-            console.log('[Bridge] 打开原来动态壁纸的预览页');
-            return true;
+        getCurrentWallpaperKind: () => (wallpaperActive ? 'ours' : (query.get('current') || 'static')),
+        getBackup: () => backup,
+        pickBackupImage() {
+            // 模拟用户在相册里选了图、存好了备份
+            setTimeout(() => {
+                backup = 'sample.jpg';
+                if (window.onBackupDone) window.onBackupDone(backup, null);
+            }, 300);
         },
-        pickRestoreImage() {
-            // 模拟用户选了图、系统设好了桌面壁纸
+        clearBackup() {
+            backup = '';
+        },
+        restorePrevious() {
+            if (query.get('prev') === 'live') {
+                console.log('[Bridge] 打开原来动态壁纸的预览页');
+                return 'live';
+            }
+            if (!backup) {
+                console.log('[Bridge] 打开系统壁纸设置');
+                return 'settings';
+            }
             setTimeout(() => {
                 wallpaperActive = false;
                 if (window.onRestoreDone) window.onRestoreDone(true, null);
             }, 300);
-        },
-        restoreDefaultWallpaper() {
-            setTimeout(() => {
-                wallpaperActive = false;
-                if (window.onRestoreDone) window.onRestoreDone(true, null);
-            }, 300);
+            return 'backup';
         },
         localUrl: (dir, name) => files[name] || '/dev/' + name,
         log: (msg) => console.log('[Bridge]', msg),

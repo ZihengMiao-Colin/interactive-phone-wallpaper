@@ -10,6 +10,7 @@ import com.wallpaper.live3d.config.ConfigManager
 import com.wallpaper.live3d.depth.DepthEstimator
 import com.wallpaper.live3d.util.FileUtils
 import com.wallpaper.live3d.util.PreviousWallpaper
+import com.wallpaper.live3d.util.WallpaperBackup
 import com.wallpaper.live3d.util.WallpaperFiles
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -210,29 +211,40 @@ class AppBridge(
         return out.toString()
     }
 
-    /** 原来是动态壁纸：打开它的系统预览页。没有记录或已卸载返回 false */
+    /** 当前桌面壁纸："ours" / "live" / "static"（设本应用之前要不要提示备份原图看这个） */
     @JavascriptInterface
-    fun restorePreviousLive(): Boolean {
-        var opened = false
+    fun getCurrentWallpaperKind(): String = activity.currentWallpaperKind().name.lowercase()
+
+    /** 原来那张静态壁纸的备份文件名（在 /local/original_wallpaper/ 下）；没有时返回空串 */
+    @JavascriptInterface
+    fun getBackup(): String = WallpaperBackup.current(activity.backupDir)?.name ?: ""
+
+    /** 从相册选出现在用的壁纸存成备份，结果 → window.onBackupDone(name, error) */
+    @JavascriptInterface
+    fun pickBackupImage() {
+        activity.runOnUiThread { activity.pickBackupImage() }
+    }
+
+    /** 不备份：删掉旧备份，免得以后恢复成一张过时的图 */
+    @JavascriptInterface
+    fun clearBackup() {
+        WallpaperBackup.clear(activity.backupDir)
+    }
+
+    /**
+     * 恢复原来的壁纸。返回 "live" / "backup"（结果 → window.onRestoreDone）/ "settings" / "failed"，
+     * 含义见 MainActivity.restorePrevious。
+     */
+    @JavascriptInterface
+    fun restorePrevious(): String {
+        var result = "failed"
         val latch = java.util.concurrent.CountDownLatch(1)
         activity.runOnUiThread {
-            opened = activity.restorePreviousLive()
+            result = activity.restorePrevious()
             latch.countDown()
         }
         latch.await(3, java.util.concurrent.TimeUnit.SECONDS)
-        return opened
-    }
-
-    /** 原来是静态图片：从相册选一张设成桌面壁纸，结果 → window.onRestoreDone(ok, message) */
-    @JavascriptInterface
-    fun pickRestoreImage() {
-        activity.runOnUiThread { activity.pickRestoreImage() }
-    }
-
-    /** 恢复系统默认的桌面壁纸，结果 → window.onRestoreDone(ok, message) */
-    @JavascriptInterface
-    fun restoreDefaultWallpaper() {
-        activity.runOnUiThread { activity.restoreDefaultWallpaper() }
+        return result
     }
 
     /** {"wallpaperActive": Boolean, "batteryOptimizationIgnored": Boolean} */

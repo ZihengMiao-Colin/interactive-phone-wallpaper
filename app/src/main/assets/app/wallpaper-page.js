@@ -184,9 +184,11 @@
 
     // ==================== 应用壁纸 ====================
 
-    function apply() {
+    async function apply() {
         const sel = App.state.selected;
         if (!sel.image || !sel.depth || generating) return;
+        // 本应用还不是壁纸：先问要不要备份原来的静态壁纸（"恢复原来的壁纸"要用）
+        if (!App.state.status.wallpaperActive && !(await BackupPrompt.beforeSetWallpaper())) return;
         if (App.isSelectedApplied() && !App.state.status.wallpaperActive) {
             // 配置已经是这张，只差在系统里设成动态壁纸
             Bridge.openLiveWallpaperPicker();

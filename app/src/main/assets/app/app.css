@@ -188,6 +188,20 @@ h1, h2, p { margin: 0; }
 }
 .sheet-title { font-size: 16px; font-weight: 600; }
 .sheet-note { margin-bottom: 4px; color: var(--text-3); font-size: 12px; }
+.backup-current {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-2);
+    font-size: 13px;
+}
+.backup-current img {
+    width: 56px;
+    height: 120px;
+    object-fit: cover;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+}
 
 /* ---------- 顶栏状态胶囊 ---------- */
 .status-chip { height: 24px; padding: 0 10px; font-size: 12px; }
