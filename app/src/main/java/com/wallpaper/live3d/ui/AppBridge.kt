@@ -9,6 +9,7 @@ import com.wallpaper.live3d.MainActivity
 import com.wallpaper.live3d.config.ConfigManager
 import com.wallpaper.live3d.depth.DepthEstimator
 import com.wallpaper.live3d.util.FileUtils
+import com.wallpaper.live3d.util.PreviousWallpaper
 import com.wallpaper.live3d.util.WallpaperFiles
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -187,6 +188,51 @@ class AppBridge(
     @JavascriptInterface
     fun openLiveWallpaperPicker() {
         activity.runOnUiThread { activity.openLiveWallpaperPicker() }
+    }
+
+    // ==================== 恢复原来的壁纸 ====================
+
+    /**
+     * 设置本应用之前的桌面壁纸：{"kind": "live", "label": 名字} / {"kind": "static"} / {"kind": "unknown"}。
+     * 记录的动态壁纸已经卸载时按 unknown 处理。
+     */
+    @JavascriptInterface
+    fun getPreviousWallpaper(): String {
+        val out = JSONObject()
+        when (val prev = configManager.previousWallpaper()) {
+            is PreviousWallpaper.Live -> {
+                val label = activity.wallpaperLabel(prev.component)
+                if (label != null) out.put("kind", "live").put("label", label) else out.put("kind", "unknown")
+            }
+            PreviousWallpaper.Static -> out.put("kind", "static")
+            PreviousWallpaper.Unknown -> out.put("kind", "unknown")
+        }
+        return out.toString()
+    }
+
+    /** 原来是动态壁纸：打开它的系统预览页。没有记录或已卸载返回 false */
+    @JavascriptInterface
+    fun restorePreviousLive(): Boolean {
+        var opened = false
+        val latch = java.util.concurrent.CountDownLatch(1)
+        activity.runOnUiThread {
+            opened = activity.restorePreviousLive()
+            latch.countDown()
+        }
+        latch.await(3, java.util.concurrent.TimeUnit.SECONDS)
+        return opened
+    }
+
+    /** 原来是静态图片：从相册选一张设成桌面壁纸，结果 → window.onRestoreDone(ok, message) */
+    @JavascriptInterface
+    fun pickRestoreImage() {
+        activity.runOnUiThread { activity.pickRestoreImage() }
+    }
+
+    /** 恢复系统默认的桌面壁纸，结果 → window.onRestoreDone(ok, message) */
+    @JavascriptInterface
+    fun restoreDefaultWallpaper() {
+        activity.runOnUiThread { activity.restoreDefaultWallpaper() }
     }
 
     /** {"wallpaperActive": Boolean, "batteryOptimizationIgnored": Boolean} */

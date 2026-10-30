@@ -108,6 +108,11 @@
                     <div class="txt"><div class="t">桌面壁纸</div><div class="s" id="sys-wp-text"></div></div>
                     <button type="button" class="btn sm" id="sys-wp-btn"></button>
                 </div>
+                <div class="row">
+                    <span class="ic"><svg class="i"><use href="#i-rotate-ccw"/></svg></span>
+                    <div class="txt"><div class="t">恢复原来的壁纸</div><div class="s" id="sys-restore-text"></div></div>
+                    <button type="button" class="btn sm" id="sys-restore-btn">恢复</button>
+                </div>
             </div>
 
             <h2 class="group-title">后台运行</h2>
@@ -138,6 +143,17 @@
     </nav>
 
     <div id="toast" class="toast glass" role="status" hidden></div>
+
+    <!-- ====== 恢复原来的壁纸：原来是静态图片时的选择 ====== -->
+    <div id="restore-sheet" class="sheet-backdrop" hidden>
+        <div class="sheet" role="dialog" aria-labelledby="restore-sheet-title">
+            <h2 class="sheet-title" id="restore-sheet-title">恢复原来的壁纸</h2>
+            <p class="sheet-note" id="restore-sheet-note"></p>
+            <button type="button" class="btn block" id="restore-pick"><svg class="i"><use href="#i-image"/></svg>从相册选择…</button>
+            <button type="button" class="btn block" id="restore-default"><svg class="i"><use href="#i-rotate-ccw"/></svg>恢复系统默认壁纸</button>
+            <button type="button" class="btn ghost block" id="restore-cancel">取消</button>
+        </div>
+    </div>
 
     <!-- ====== 裁剪（全屏，盖住页签栏） ====== -->
     <div id="crop-overlay" hidden>

@@ -15,6 +15,28 @@ class WallpaperPickerTest {
     }
 
     @Test
+    fun restore_xiaomiSystemWallpaper_goesToPreview() {
+        // 小米只对第三方壁纸查 AppOp 10045，系统自带的（如 Mi Wallpaper）可以直接进预览页
+        assertEquals(PickerRoute.CHANGE_LIVE_WALLPAPER, WallpaperPicker.restoreRoutes(isXiaomi = true, isSystemPackage = true).first())
+    }
+
+    @Test
+    fun restore_xiaomiThirdPartyWallpaper_usesList() {
+        assertEquals(
+            listOf(PickerRoute.LIVE_WALLPAPER_CHOOSER),
+            WallpaperPicker.restoreRoutes(isXiaomi = true, isSystemPackage = false),
+        )
+    }
+
+    @Test
+    fun restore_others_previewThenList() {
+        assertEquals(
+            listOf(PickerRoute.CHANGE_LIVE_WALLPAPER, PickerRoute.LIVE_WALLPAPER_CHOOSER),
+            WallpaperPicker.restoreRoutes(isXiaomi = false, isSystemPackage = false),
+        )
+    }
+
+    @Test
     fun others_tryDirectPreviewFirst() {
         assertEquals(
             listOf(PickerRoute.CHANGE_LIVE_WALLPAPER, PickerRoute.LIVE_WALLPAPER_CHOOSER, PickerRoute.SET_WALLPAPER_CHOOSER),

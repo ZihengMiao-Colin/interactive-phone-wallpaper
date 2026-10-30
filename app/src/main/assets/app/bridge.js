@@ -5,6 +5,7 @@
  *   ?fail=depth  生成深度图失败
  *   ?active=0    本应用不是当前桌面壁纸
  *   ?xiaomi=0    不是小米手机
+ *   ?prev=live|static|unknown  设置本应用之前的壁纸（默认 static）
  */
 
 'use strict';
@@ -37,6 +38,11 @@ window.Bridge = (() => {
             getStatus: () => parse(native.getStatus(), NO_STATUS),
             getPlatformInfo: () => parse(native.getPlatformInfo(), {}),
             requestBatteryOptimizationBypass: () => native.requestBatteryOptimizationBypass(),
+            /** @returns {{kind: 'live'|'static'|'unknown', label?: string}} */
+            getPreviousWallpaper: () => parse(native.getPreviousWallpaper(), { kind: 'unknown' }),
+            restorePreviousLive: () => native.restorePreviousLive(),
+            pickRestoreImage: () => native.pickRestoreImage(),
+            restoreDefaultWallpaper: () => native.restoreDefaultWallpaper(),
             /** @param {'wallpapers'|'depth_cache'} dir */
             localUrl: (dir, name) => LOCAL_BASE + dir + '/' + encodeURIComponent(name),
             log: (msg) => native.log(String(msg)),
@@ -100,6 +106,27 @@ window.Bridge = (() => {
         }),
         requestBatteryOptimizationBypass() {
             console.log('[Bridge] 打开电池优化设置');
+        },
+        getPreviousWallpaper() {
+            const prev = query.get('prev') || 'static';
+            return prev === 'live' ? { kind: 'live', label: 'Mi Wallpaper' } : { kind: prev };
+        },
+        restorePreviousLive() {
+            console.log('[Bridge] 打开原来动态壁纸的预览页');
+            return true;
+        },
+        pickRestoreImage() {
+            // 模拟用户选了图、系统设好了桌面壁纸
+            setTimeout(() => {
+                wallpaperActive = false;
+                if (window.onRestoreDone) window.onRestoreDone(true, null);
+            }, 300);
+        },
+        restoreDefaultWallpaper() {
+            setTimeout(() => {
+                wallpaperActive = false;
+                if (window.onRestoreDone) window.onRestoreDone(true, null);
+            }, 300);
         },
         localUrl: (dir, name) => files[name] || '/dev/' + name,
         log: (msg) => console.log('[Bridge]', msg),

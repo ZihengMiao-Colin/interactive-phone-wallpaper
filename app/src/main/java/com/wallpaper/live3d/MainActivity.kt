@@ -16,10 +16,15 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.wallpaper.live3d.config.ConfigManager
 import com.wallpaper.live3d.ui.AppBridge
 import com.wallpaper.live3d.ui.WebViewSetup
 import com.wallpaper.live3d.util.PickerRoute
+import com.wallpaper.live3d.util.PreviousWallpaper
 import com.wallpaper.live3d.util.SensorHelper
 import com.wallpaper.live3d.util.WallpaperPicker
 import com.wallpaper.live3d.util.WallpaperFiles
@@ -48,6 +53,20 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let { appBridge.onImageSelected(it) }
+    }
+
+    // 恢复原来的壁纸：从相册选一张，直接设成桌面静态壁纸
+    private val restoreImageLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri == null) {
+            notifyRestore(false, null)   // 取消选择，不提示
+            return@registerForActivityResult
+        }
+        changeHomeWallpaper { wm ->
+            contentResolver.openInputStream(uri)?.use { wm.setStream(it, null, true, WallpaperManager.FLAG_SYSTEM) }
+                ?: throw IllegalStateException("无法打开图片")
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -156,8 +175,13 @@ class MainActivity : AppCompatActivity() {
      * 启动失败时按顺序退到下一种。
      */
     fun openLiveWallpaperPicker() {
-        val isXiaomi = Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
-        for (route in WallpaperPicker.routes(isXiaomi)) {
+        // 本应用还不是壁纸：先记下现在的桌面壁纸，"恢复原来的壁纸"用
+        if (!isOurWallpaperActive()) {
+            ConfigManager(this).setPreviousWallpaper(
+                WallpaperManager.getInstance(this).wallpaperInfo?.component?.flattenToString()
+            )
+        }
+        for (route in WallpaperPicker.routes(isXiaomi())) {
             val intent = when (route) {
                 PickerRoute.CHANGE_LIVE_WALLPAPER -> Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).putExtra(
                     WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
@@ -178,6 +202,82 @@ class MainActivity : AppCompatActivity() {
             }
         }
         Toast.makeText(this, "无法打开壁纸设置，请在系统设置里选择动态壁纸", Toast.LENGTH_LONG).show()
+    }
+
+    // ==================== 恢复原来的壁纸 ====================
+
+    private fun isXiaomi() = Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
+
+    /** 动态壁纸的名字；已卸载或查不到时返回 null */
+    fun wallpaperLabel(component: String): String? = try {
+        val name = ComponentName.unflattenFromString(component) ?: return null
+        packageManager.getServiceInfo(name, 0).loadLabel(packageManager).toString()
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun isSystemPackage(pkg: String): Boolean = try {
+        packageManager.getApplicationInfo(pkg, 0).flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0
+    } catch (_: Exception) {
+        false
+    }
+
+    /**
+     * 原来是动态壁纸：打开它的系统预览页（小米上第三方的会被拦，改开动态壁纸列表）。
+     * @return 打开了系统页面返回 true；没有记录到动态壁纸或它已卸载返回 false
+     */
+    fun restorePreviousLive(): Boolean {
+        val prev = ConfigManager(this).previousWallpaper() as? PreviousWallpaper.Live ?: return false
+        val component = ComponentName.unflattenFromString(prev.component) ?: return false
+        val label = wallpaperLabel(prev.component) ?: return false
+        for (route in WallpaperPicker.restoreRoutes(isXiaomi(), isSystemPackage(component.packageName))) {
+            val intent = when (route) {
+                PickerRoute.CHANGE_LIVE_WALLPAPER -> Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+                    .putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, component)
+                PickerRoute.LIVE_WALLPAPER_CHOOSER -> Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
+                PickerRoute.SET_WALLPAPER_CHOOSER -> continue
+            }
+            try {
+                startActivity(intent)
+                if (route == PickerRoute.LIVE_WALLPAPER_CHOOSER) {
+                    Toast.makeText(this, "在列表里选「$label」，再点「设置壁纸」", Toast.LENGTH_LONG).show()
+                }
+                return true
+            } catch (e: Exception) {
+                android.util.Log.w("[MainActivity]", "无法打开 $route: ${e.message}")
+            }
+        }
+        return false
+    }
+
+    /** 原来是静态图片：从相册选一张设成桌面壁纸（结果 → window.onRestoreDone） */
+    fun pickRestoreImage() {
+        restoreImageLauncher.launch("image/*")
+    }
+
+    /** 恢复系统默认的桌面壁纸（锁屏不动） */
+    fun restoreDefaultWallpaper() {
+        changeHomeWallpaper { wm -> wm.clear(WallpaperManager.FLAG_SYSTEM) }
+    }
+
+    /** 在后台线程改桌面壁纸（只改桌面，锁屏不动），完成后通知页面 */
+    private fun changeHomeWallpaper(action: (WallpaperManager) -> Unit) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val error = try {
+                action(WallpaperManager.getInstance(this@MainActivity))
+                null
+            } catch (e: Throwable) {
+                android.util.Log.e("[MainActivity]", "恢复壁纸失败", e)
+                e.message ?: e.javaClass.simpleName
+            }
+            withContext(Dispatchers.Main) { notifyRestore(error == null, error) }
+        }
+    }
+
+    /** window.onRestoreDone(ok, message)：message 为 null 表示用户取消，不用提示 */
+    private fun notifyRestore(ok: Boolean, message: String?) {
+        val msg = message?.let { org.json.JSONObject.quote(it) } ?: "null"
+        webView.evaluateJavascript("window.onRestoreDone && window.onRestoreDone($ok, $msg)", null)
     }
 
     /** 跳转电池优化设置 */

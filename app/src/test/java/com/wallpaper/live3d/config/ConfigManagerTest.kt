@@ -1,5 +1,6 @@
 package com.wallpaper.live3d.config
 
+import com.wallpaper.live3d.util.PreviousWallpaper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -46,6 +47,16 @@ class ConfigManagerTest {
         val all = ConfigManager(FakeSharedPreferences()).getAll()
         assertEquals("", all.getString(ConfigManager.KEY_CURRENT_IMAGE))
         assertEquals("", all.getString(ConfigManager.KEY_DEPTH_FILE))
+    }
+
+    @Test
+    fun previousWallpaper_unknownUntilRecorded() {
+        val config = ConfigManager(FakeSharedPreferences())
+        assertEquals(PreviousWallpaper.Unknown, config.previousWallpaper())
+        config.setPreviousWallpaper(null)
+        assertEquals(PreviousWallpaper.Static, config.previousWallpaper())
+        config.setPreviousWallpaper("com.miui.miwallpaper/com.miui.miwallpaper.MiWallpaper")
+        assertEquals(PreviousWallpaper.Live("com.miui.miwallpaper/com.miui.miwallpaper.MiWallpaper"), config.previousWallpaper())
     }
 
     @Test

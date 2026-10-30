@@ -27,4 +27,15 @@ object WallpaperPicker {
         } else {
             listOf(PickerRoute.CHANGE_LIVE_WALLPAPER, PickerRoute.LIVE_WALLPAPER_CHOOSER, PickerRoute.SET_WALLPAPER_CHOOSER)
         }
+
+    /**
+     * 恢复原来的动态壁纸时的打开方式。小米只对第三方壁纸查 AppOp 10045，
+     * 系统自带的（Mi Wallpaper、主题壁纸等）可以直接进它的预览页。
+     */
+    fun restoreRoutes(isXiaomi: Boolean, isSystemPackage: Boolean): List<PickerRoute> =
+        if (isXiaomi && !isSystemPackage) {
+            listOf(PickerRoute.LIVE_WALLPAPER_CHOOSER)
+        } else {
+            listOf(PickerRoute.CHANGE_LIVE_WALLPAPER, PickerRoute.LIVE_WALLPAPER_CHOOSER)
+        }
 }

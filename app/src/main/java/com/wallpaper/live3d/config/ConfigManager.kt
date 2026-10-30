@@ -2,6 +2,7 @@ package com.wallpaper.live3d.config
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.wallpaper.live3d.util.PreviousWallpaper
 import org.json.JSONObject
 
 /**
@@ -40,6 +41,8 @@ class ConfigManager(private val prefs: SharedPreferences) {
         const val KEY_CURRENT_IMAGE = "currentImage"
         const val KEY_DEPTH_FILE = "depthFile"
         const val KEY_HIDE_DEBUG = "hideDebugPanel"
+        /** 设置本应用之前的桌面壁纸，格式见 PreviousWallpaper */
+        const val KEY_PREVIOUS_WALLPAPER = "previousWallpaper"
 
         /** 参数的默认值和范围；isInt 的存成 Int，其余存成 Float */
         private class Param(val default: Double, val min: Double, val max: Double, val isInt: Boolean)
@@ -108,6 +111,15 @@ class ConfigManager(private val prefs: SharedPreferences) {
             .putString(KEY_CURRENT_IMAGE, image)
             .putString(KEY_DEPTH_FILE, depthFile)
             .apply()
+    }
+
+    /** 设置本应用之前的桌面壁纸 */
+    fun previousWallpaper(): PreviousWallpaper =
+        PreviousWallpaper.decode(if (prefs.contains(KEY_PREVIOUS_WALLPAPER)) prefs.getString(KEY_PREVIOUS_WALLPAPER, "") else null)
+
+    /** @param component 当时的动态壁纸组件名；静态图片传 null */
+    fun setPreviousWallpaper(component: String?) {
+        prefs.edit().putString(KEY_PREVIOUS_WALLPAPER, PreviousWallpaper.encode(component)).apply()
     }
 
     fun registerListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
