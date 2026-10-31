@@ -24,7 +24,7 @@ window.WallpaperConfig = {
     maxTiltDeg: 30.0,
 
     /** 边缘平滑 (像素) —— 生成深度图时用 */
-    blurRadius: 8,
+    blurRadius: 5,
 
     /** 桌面左右滑动偏移叠加到倾斜输入上的权重（和旧版 5px / 15px 的比例相当） */
     desktopOffsetWeight: 0.33,

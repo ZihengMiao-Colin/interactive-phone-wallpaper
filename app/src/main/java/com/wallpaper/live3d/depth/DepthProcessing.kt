@@ -28,7 +28,7 @@ object DepthProcessing {
     /** 输出深度图的最长边。深度图本身很平滑，再大看不出差别，只会让后处理变慢、缓存变大 */
     const val DEPTH_MAX_SIDE = 1920
 
-    const val DEFAULT_BLUR = 8
+    const val DEFAULT_BLUR = 5
 
     private val IMAGENET_MEAN = floatArrayOf(0.485f, 0.456f, 0.406f)
     private val IMAGENET_STD = floatArrayOf(0.229f, 0.224f, 0.225f)

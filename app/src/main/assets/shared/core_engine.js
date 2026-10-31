@@ -3,10 +3,10 @@
  * shared/core_engine.js — Pixi.js 深度视差渲染引擎（壁纸和 App 预览共用）
  * ============================================================================
  *
- * 原理和桌面版 renderer/parallax-scene.js 一样：全屏精灵挂一个自定义滤镜，
- * 片元着色器按深度图把每个像素的采样坐标沿倾斜方向偏移，
- * 偏移量 = tilt × (depth − focus) × strength（带软截断）。
- * 深度等于对焦深度的地方完全不动，离得越远偏移越大，形成伪 3D 视差。
+ * 原理和桌面版 renderer/parallax-scene.js 一样：全屏精灵挂一个自定义滤镜。
+ * 深度 t 的内容沿倾斜方向挪 tilt × (t − focus) × strength（带软截断），
+ * 深度等于对焦深度的地方完全不动，离得越远挪得越多，形成伪 3D 视差。
+ * 片元着色器用光线步进找出每个像素实际显示的图片位置，近处的内容挪过来会盖住远处的。
  *
  * 输入：
  *   - setSensorTarget()  ← 原生 SensorManager 推送的归一化倾斜 [-1, 1]
@@ -25,6 +25,7 @@ window.CoreEngine = (() => {
             super(PARALLAX_VERTEX_SHADER, PARALLAX_FRAGMENT_SHADER, {
                 uImage: imageTexture,
                 uDepth: depthTexture,
+                uDepthSize: new Float32Array([1.0, 1.0]),
                 uMouse: new Float32Array([0.0, 0.0]),
                 uStrength: 0.025,
                 uFocus: 0.50,
@@ -156,6 +157,8 @@ window.CoreEngine = (() => {
         const oldDepth = depthTexture;
         bgTexture = makeTexture(bgImg);
         depthTexture = makeTexture(depthImg);
+        // 光线步进在分支和循环里读深度图，读的时候算不出该用哪级 mipmap，所以深度图不要 mipmap
+        depthTexture.baseTexture.mipmap = PIXI.MIPMAP_MODES.OFF;
 
         if (!filter) {
             screenSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
@@ -165,6 +168,8 @@ window.CoreEngine = (() => {
         }
         filter.uniforms.uImage = view === 'depth' ? depthTexture : bgTexture;
         filter.uniforms.uDepth = depthTexture;
+        // 深度图的像素尺寸（光线步进按它决定走几步）
+        filter.uniforms.uDepthSize = [depthImg.naturalWidth || depthImg.width, depthImg.naturalHeight || depthImg.height];
         fitRenderer();
 
         // 新纹理已经挂上滤镜，旧纹理可以连同 GPU 资源一起释放

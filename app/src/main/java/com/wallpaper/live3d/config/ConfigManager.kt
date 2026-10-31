@@ -15,7 +15,8 @@ import org.json.JSONObject
  *   focusDepth (float)         - 对焦深度, 默认 0.5 (0~1)
  *   deadZoneDeg (float)        - 静止范围, 默认 3.0 (0~10)
  *   maxTiltDeg (float)         - 最大倾斜, 默认 30.0 (10~60)
- *   blurRadius (int)           - 边缘平滑, 默认 8 (0~30)
+ *   blurRadius (int)           - 边缘平滑, 默认 5 (0~30)
+ *   blurRadiusVersion (int)    - 边缘平滑默认值从 8 改成 5 的标记（见 blurRadius()）
  *   currentImage (string)      - 桌面壁纸正在用的图片文件名（只有"应用壁纸"时写）
  *   depthFile (string)         - 桌面壁纸正在用的深度图文件名（同上）
  *   hideDebugPanel (boolean)   - 隐藏调试面板, 默认 true
@@ -40,6 +41,15 @@ class ConfigManager(private val prefs: SharedPreferences) {
         const val KEY_CURRENT_IMAGE = "currentImage"
         const val KEY_DEPTH_FILE = "depthFile"
         const val KEY_HIDE_DEBUG = "hideDebugPanel"
+        private const val KEY_BLUR_VERSION = "blurRadiusVersion"
+
+        /**
+         * 边缘平滑的旧默认值。视差改成光线步进后默认值改成 5（和桌面一致）；
+         * 旧版本"恢复推荐值"会把 8 存进去，没有 blurRadiusVersion 标记时存着的 8 当成没调过，读成新默认值。
+         * 保存边缘平滑时一起写标记，之后用户自己调回 8 不会再被改。
+         */
+        private const val LEGACY_BLUR_DEFAULT = 8
+        private const val BLUR_VERSION = 2
 
         /** 参数的默认值和范围；isInt 的存成 Int，其余存成 Float */
         private class Param(val default: Double, val min: Double, val max: Double, val isInt: Boolean)
@@ -50,7 +60,7 @@ class ConfigManager(private val prefs: SharedPreferences) {
             KEY_FOCUS to Param(0.5, 0.0, 1.0, false),
             KEY_DEAD_ZONE to Param(3.0, 0.0, 10.0, false),
             KEY_MAX_TILT to Param(30.0, 10.0, 60.0, false),
-            KEY_BLUR to Param(8.0, 0.0, 30.0, true),
+            KEY_BLUR to Param(5.0, 0.0, 30.0, true),
         )
 
         /** 界面能改的参数 */
@@ -70,8 +80,17 @@ class ConfigManager(private val prefs: SharedPreferences) {
 
     /** 读一个参数的当前值（Int 或 Float） */
     private fun param(key: String): Number {
+        if (key == KEY_BLUR) return blurRadius()
         val p = PARAMS.getValue(key)
         return if (p.isInt) prefs.getInt(key, p.default.toInt()) else prefs.getFloat(key, p.default.toFloat())
+    }
+
+    /** 边缘平滑：没有新版本标记、存着的还是旧默认值 8 的，读成新默认值 */
+    private fun blurRadius(): Int {
+        val default = PARAMS.getValue(KEY_BLUR).default.toInt()
+        val v = prefs.getInt(KEY_BLUR, default)
+        val migrated = prefs.getInt(KEY_BLUR_VERSION, 0) == BLUR_VERSION
+        return if (!migrated && v == LEGACY_BLUR_DEFAULT) default else v
     }
 
     /** 返回所有配置 */
@@ -99,6 +118,7 @@ class ConfigManager(private val prefs: SharedPreferences) {
                 else -> {}
             }
         }
+        if (json.has(KEY_BLUR)) editor.putInt(KEY_BLUR_VERSION, BLUR_VERSION)
         editor.apply()
     }
 

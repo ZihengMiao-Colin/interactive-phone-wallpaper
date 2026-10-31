@@ -37,9 +37,9 @@
                 <p class="progress-text" id="wp-progress-text" hidden></p>
                 <div class="divider"></div>
                 <div class="field">
-                    <div class="field-head"><label for="wp-blur">边缘平滑</label><span class="val" id="wp-blur-val">8px</span></div>
-                    <input type="range" id="wp-blur" min="0" max="30" step="1" value="8">
-                    <p class="note">越大主体边缘越不容易撕裂，重新生成深度图后生效</p>
+                    <div class="field-head"><label for="wp-blur">边缘平滑</label><span class="val" id="wp-blur-val">5px</span></div>
+                    <input type="range" id="wp-blur" min="0" max="30" step="1" value="5">
+                    <p class="note">太小时毛发、胡须这类细的东西容易被切断，太大时主体周围一圈背景会跟着晃；重新生成深度图后生效</p>
                 </div>
                 <div class="btn-row">
                     <button type="button" class="btn" id="wp-pick"><svg class="i"><use href="#i-image-plus"/></svg>选择图片</button>

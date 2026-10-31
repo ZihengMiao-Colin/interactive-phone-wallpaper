@@ -1,5 +1,6 @@
 package com.wallpaper.live3d.config
 
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -11,7 +12,7 @@ class ConfigManagerTest {
         assertEquals(100, ConfigManager.sanitize(ConfigManager.KEY_PARALLAX, 150.0))
         assertEquals(5, ConfigManager.sanitize(ConfigManager.KEY_PARALLAX, 1.0))
         assertEquals(13, ConfigManager.sanitize(ConfigManager.KEY_PARALLAX, 12.6))
-        assertEquals(8, ConfigManager.sanitize(ConfigManager.KEY_BLUR, 8.0))
+        assertEquals(5, ConfigManager.sanitize(ConfigManager.KEY_BLUR, 5.0))
         assertEquals(30, ConfigManager.sanitize(ConfigManager.KEY_BLUR, 99.0))
     }
 
@@ -46,6 +47,37 @@ class ConfigManagerTest {
         val all = ConfigManager(FakeSharedPreferences()).getAll()
         assertEquals("", all.getString(ConfigManager.KEY_CURRENT_IMAGE))
         assertEquals("", all.getString(ConfigManager.KEY_DEPTH_FILE))
+    }
+
+    @Test
+    fun blur_freshInstallDefaultsTo5() {
+        val all = ConfigManager(FakeSharedPreferences()).getAll()
+        assertEquals(5, all.getInt(ConfigManager.KEY_BLUR))
+    }
+
+    @Test
+    fun blur_oldDefault8ReadsAs5() {
+        // 旧版本"恢复推荐值"会把 8 存进去，当成没调过
+        val prefs = FakeSharedPreferences()
+        prefs.edit().putInt(ConfigManager.KEY_BLUR, 8).apply()
+        assertEquals(5, ConfigManager(prefs).getAll().getInt(ConfigManager.KEY_BLUR))
+    }
+
+    @Test
+    fun blur_oldCustomValueKept() {
+        val prefs = FakeSharedPreferences()
+        prefs.edit().putInt(ConfigManager.KEY_BLUR, 12).apply()
+        assertEquals(12, ConfigManager(prefs).getAll().getInt(ConfigManager.KEY_BLUR))
+    }
+
+    @Test
+    fun blur_savedAfterMigrationKeeps8() {
+        // 改成 5 之后用户自己调回 8，不能再被改掉
+        val prefs = FakeSharedPreferences()
+        prefs.edit().putInt(ConfigManager.KEY_BLUR, 8).apply()
+        val config = ConfigManager(prefs)
+        config.applyParams(JSONObject().put(ConfigManager.KEY_BLUR, 8))
+        assertEquals(8, config.getAll().getInt(ConfigManager.KEY_BLUR))
     }
 
     @Test

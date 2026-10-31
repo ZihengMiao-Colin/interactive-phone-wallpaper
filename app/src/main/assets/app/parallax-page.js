@@ -13,7 +13,7 @@
     /** 推荐值（"恢复推荐值"同时恢复边缘平滑，和桌面一致） */
     const RECOMMENDED = {
         parallaxMultiplier: 10, smoothness: 0.05, focusDepth: 0.5,
-        deadZoneDeg: 3, maxTiltDeg: 30, blurRadius: 8,
+        deadZoneDeg: 3, maxTiltDeg: 30, blurRadius: 5,
     };
 
     /** 滑块值 ↔ 配置值；format 收到的是滑块值 */

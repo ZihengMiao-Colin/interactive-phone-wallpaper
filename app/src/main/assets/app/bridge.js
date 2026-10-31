@@ -53,7 +53,7 @@ window.Bridge = (() => {
     const PARAM_KEYS = ['parallaxMultiplier', 'smoothness', 'focusDepth', 'deadZoneDeg', 'maxTiltDeg', 'blurRadius'];
     const config = {
         parallaxMultiplier: 10, smoothness: 0.05, focusDepth: 0.5,
-        deadZoneDeg: 3, maxTiltDeg: 30, blurRadius: 8,
+        deadZoneDeg: 3, maxTiltDeg: 30, blurRadius: 5,
         currentImage: 'sample.jpg', depthFile: 'sample-depth.png',
     };
     /** 裁剪结果：文件名 → dataUrl */
