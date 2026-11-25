@@ -1,28 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 软件图标前景：桌面项目 assets/icon.svg（Kirie 的 K2 图标）里的三个 K，路径原样照抄。
+     从远到近是深青、青、白，往右下错开叠在一起。
+     icon.svg 是 256 的坐标，三层 K 整体的外框是 x 39~217、y 22~234（中心 128,128）；
+     这里缩放 50/212、平移到 108dp 画布的中心，外框 42×50dp，对角线 65dp，
+     落在自适应图标中间 66dp 的安全区里（各家桌面会裁成圆形或圆角方形）。
+     桌面改了图标要跟着改这里 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 3D cube wireframe -->
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M30,40 L54,28 L78,40 L78,64 L54,76 L30,64 Z"
-        android:strokeWidth="2"
-        android:strokeColor="@color/text_primary" />
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M30,40 L30,64"
-        android:strokeWidth="1.5"
-        android:strokeColor="@color/text_secondary" />
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M54,28 L54,76"
-        android:strokeWidth="1.5"
-        android:strokeColor="@color/text_secondary" />
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M78,40 L78,64"
-        android:strokeWidth="1.5"
-        android:strokeColor="@color/text_secondary" />
+    <group
+        android:scaleX="0.235849"
+        android:scaleY="0.235849"
+        android:translateX="23.811321"
+        android:translateY="23.811321">
+        <path
+            android:fillColor="#0d5a6e"
+            android:pathData="M67 50 L117 50 L117 234 L67 234 Z M147 50 L217 50 L117 150 L117 80 Z M67 142 L125 142 L217 234 L147 234 L67 154 Z" />
+        <path
+            android:fillColor="#18d1ff"
+            android:pathData="M53 36 L103 36 L103 220 L53 220 Z M133 36 L203 36 L103 136 L103 66 Z M53 128 L111 128 L203 220 L133 220 L53 140 Z" />
+        <path
+            android:fillColor="#ffffff"
+            android:pathData="M39 22 L89 22 L89 206 L39 206 Z M119 22 L189 22 L89 122 L89 52 Z M39 114 L97 114 L189 206 L119 206 L39 126 Z" />
+    </group>
 </vector>

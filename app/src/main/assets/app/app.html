@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>互动3D壁纸</title>
+    <title>Kirie 壁纸</title>
     <link rel="stylesheet" href="../ui/tokens.css">
     <link rel="stylesheet" href="app.css">
+    <!-- 主题要在第一次画出来之前定好 -->
+    <script src="theme.js"></script>
 </head>
 <body>
 
@@ -13,14 +15,17 @@
         <!-- ====== 壁纸 ====== -->
         <section class="page" data-page="wallpaper" aria-label="壁纸">
             <header class="topbar">
-                <h1>互动 3D 壁纸</h1>
-                <span class="chip status-chip" id="wp-status-chip"><span class="dot"></span><span id="wp-status-text">未设为桌面壁纸</span></span>
+                <h1 class="brand"><img class="logo" src="../ui/icon.svg" alt=""><b>Kirie</b><span class="sub">互动 3D 壁纸</span></h1>
+                <span class="chip status-chip" id="wp-status-chip"><span id="wp-status-text">未设为桌面壁纸</span></span>
             </header>
 
-            <div class="preview big" id="preview-big">
-                <div class="hint">倾斜手机，或按住拖动预览</div>
-                <div class="veil"><span>生成深度图后可以预览视差</span></div>
-                <div class="empty-state"><svg class="i"><use href="#i-image-plus"/></svg><span>选一张图片开始</span></div>
+            <div class="preview-frame">
+                <div class="preview big" id="preview-big">
+                    <div class="hint">倾斜手机，或按住拖动预览</div>
+                    <div class="veil"><span>生成深度图后可以预览视差</span></div>
+                    <div class="empty-state"><svg class="i"><use href="#i-image-plus"/></svg><span>选一张图片开始</span></div>
+                </div>
+                <i class="brk"></i>
             </div>
 
             <div class="under-preview">
@@ -31,7 +36,7 @@
                 </span>
             </div>
 
-            <div class="card">
+            <div class="panel card">
                 <div class="status none" id="wp-depth-status"></div>
                 <div class="progress" id="wp-progress" hidden><i></i></div>
                 <p class="progress-text" id="wp-progress-text" hidden></p>
@@ -45,25 +50,28 @@
                     <button type="button" class="btn" id="wp-pick"><svg class="i"><use href="#i-image-plus"/></svg>选择图片</button>
                     <button type="button" class="btn" id="wp-generate"><svg class="i"><use href="#i-wand-sparkles"/></svg><span>生成深度图</span></button>
                 </div>
-                <button type="button" class="btn primary block" id="wp-apply"><svg class="i"><use href="#i-check"/></svg><span>应用壁纸</span></button>
+                <button type="button" class="btn contrast block" id="wp-apply"><svg class="i"><use href="#i-check"/></svg><span>应用壁纸</span></button>
             </div>
         </section>
 
         <!-- ====== 视差 ====== -->
         <section class="page" data-page="parallax" aria-label="视差" hidden>
-            <header class="topbar">
-                <h1>视差</h1>
+            <header class="page-head">
+                <h1>视差<span class="en">Parallax</span></h1>
                 <button type="button" class="btn ghost sm" id="px-reset"><svg class="i"><use href="#i-rotate-ccw"/></svg>恢复推荐值</button>
             </header>
 
-            <div class="preview small" id="preview-small">
-                <div class="hint">倾斜手机，或按住拖动预览</div>
-                <div class="veil"><span>生成深度图后可以预览视差</span></div>
-                <div class="empty-state"><svg class="i"><use href="#i-image-plus"/></svg><span>先在"壁纸"页选一张图片</span></div>
+            <div class="preview-frame">
+                <div class="preview small" id="preview-small">
+                    <div class="hint">倾斜手机，或按住拖动预览</div>
+                    <div class="veil"><span>生成深度图后可以预览视差</span></div>
+                    <div class="empty-state"><svg class="i"><use href="#i-image-plus"/></svg><span>先在"壁纸"页选一张图片</span></div>
+                </div>
+                <i class="brk"></i>
             </div>
 
-            <h2 class="group-title">画面</h2>
-            <div class="card">
+            <div class="group-head"><h2>画面</h2></div>
+            <div class="panel card">
                 <div class="field">
                     <div class="field-head"><label for="px-strength">视差强度</label><span class="val" id="px-strength-val"></span></div>
                     <input type="range" id="px-strength" min="5" max="100" step="1">
@@ -82,8 +90,8 @@
                 </div>
             </div>
 
-            <h2 class="group-title">陀螺仪</h2>
-            <div class="card">
+            <div class="group-head"><h2>陀螺仪</h2></div>
+            <div class="panel card">
                 <div class="field">
                     <div class="field-head"><label for="px-deadzone">静止范围</label><span class="val" id="px-deadzone-val"></span></div>
                     <input type="range" id="px-deadzone" min="0" max="10" step="0.5">
@@ -99,10 +107,23 @@
 
         <!-- ====== 设置 ====== -->
         <section class="page" data-page="system" aria-label="设置" hidden>
-            <header class="topbar"><h1>设置</h1></header>
+            <header class="page-head"><h1>设置<span class="en">System</span></h1></header>
 
-            <h2 class="group-title">动态壁纸</h2>
-            <div class="list">
+            <div class="group-head first"><h2>界面</h2></div>
+            <div class="panel list">
+                <div class="row stack">
+                    <span class="ic"><svg class="i"><use href="#i-sun"/></svg></span>
+                    <div class="txt"><div class="t">界面主题</div><div class="s">只换这个应用的颜色，桌面上的壁纸不受影响</div></div>
+                    <div class="seg" id="sys-theme">
+                        <button type="button" data-value="dark">夜间</button>
+                        <button type="button" data-value="light">日间</button>
+                        <button type="button" data-value="system">跟随系统</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="group-head"><h2>动态壁纸</h2></div>
+            <div class="panel list">
                 <div class="row">
                     <span class="ic"><svg class="i"><use href="#i-smartphone"/></svg></span>
                     <div class="txt"><div class="t">桌面壁纸</div><div class="s" id="sys-wp-text"></div></div>
@@ -115,41 +136,46 @@
                 </div>
             </div>
 
-            <h2 class="group-title">后台运行</h2>
-            <div class="list">
+            <div class="group-head"><h2>后台运行</h2></div>
+            <div class="panel list">
                 <div class="row">
                     <span class="ic"><svg class="i"><use href="#i-battery"/></svg></span>
                     <div class="txt"><div class="t">电池优化</div><div class="s" id="sys-batt-text"></div></div>
                     <button type="button" class="btn sm" id="sys-batt-btn">去关闭</button>
                 </div>
             </div>
-            <div class="warn-card" id="sys-miui" hidden>
-                <svg class="i"><use href="#i-triangle-alert"/></svg>
-                <p><b>小米 / HyperOS：</b>如果锁屏壁纸不生效，先在"个性主题"里应用任意一个系统动态壁纸，再回来重新设置本应用。</p>
+            <div class="notice" id="sys-miui" hidden>
+                <i class="hz"></i>
+                <b>小米 / HyperOS</b>
+                <p>如果锁屏壁纸不生效，先在"个性主题"里应用任意一个系统动态壁纸，再回来重新设置本应用。</p>
             </div>
 
-            <h2 class="group-title">关于</h2>
-            <div class="list">
-                <div class="kv"><span>版本</span><span id="sys-version"></span></div>
+            <div class="group-head"><h2>关于</h2></div>
+            <div class="panel list">
+                <div class="about">
+                    <img class="logo" src="../ui/icon.svg" alt="">
+                    <b>Kirie 壁纸</b>
+                    <span class="ver" id="sys-version"></span>
+                </div>
                 <div class="kv"><span>设备</span><span id="sys-device"></span></div>
             </div>
         </section>
     </main>
 
     <nav class="tabbar" role="tablist">
-        <button type="button" data-tab="wallpaper" role="tab"><span class="pill"><svg class="i"><use href="#i-image"/></svg></span>壁纸</button>
-        <button type="button" data-tab="parallax" role="tab"><span class="pill"><svg class="i"><use href="#i-layers"/></svg></span>视差</button>
-        <button type="button" data-tab="system" role="tab"><span class="pill"><svg class="i"><use href="#i-settings"/></svg></span>设置</button>
+        <button type="button" data-tab="wallpaper" role="tab"><svg class="i"><use href="#i-image"/></svg><span>壁纸</span></button>
+        <button type="button" data-tab="parallax" role="tab"><svg class="i"><use href="#i-layers"/></svg><span>视差</span></button>
+        <button type="button" data-tab="system" role="tab"><svg class="i"><use href="#i-settings"/></svg><span>设置</span></button>
     </nav>
 
-    <div id="toast" class="toast glass" role="status" hidden></div>
+    <div id="toast" class="toast" role="status" hidden></div>
 
     <!-- ====== 裁剪（全屏，盖住页签栏） ====== -->
     <div id="crop-overlay" hidden>
         <div class="crop-bar">
             <button type="button" class="btn ghost" id="crop-cancel">取消</button>
             <span class="crop-title">调整裁剪范围</span>
-            <button type="button" class="btn primary sm" id="crop-confirm">确认</button>
+            <button type="button" class="btn contrast sm" id="crop-confirm">确认</button>
         </div>
         <div id="crop-area">
             <img id="crop-image" alt="">
@@ -162,7 +188,7 @@
                 <i class="crop-handle bl"></i><i class="crop-handle br"></i>
             </div>
         </div>
-        <div class="crop-hint glass">拖动移动 · 双指缩放 · 比例锁定为屏幕尺寸</div>
+        <div class="crop-hint float">拖动移动 · 双指缩放 · 比例锁定为屏幕尺寸</div>
     </div>
 
     <!-- Pixi.js -->

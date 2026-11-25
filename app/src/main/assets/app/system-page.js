@@ -1,11 +1,21 @@
 /**
- * system-page.js — "设置"页：动态壁纸状态、电池优化、小米提示、关于
+ * system-page.js — "设置"页：界面主题、动态壁纸状态、电池优化、小米提示、关于
  */
 
 'use strict';
 
 (() => {
     const $ = (id) => document.getElementById(id);
+
+    // ==================== 界面主题 ====================
+    // 点了马上换，不重新加载页面：页面颜色由 Theme 换，系统栏和底色由原生层换
+
+    function changeTheme(value) {
+        const systemDark = Bridge.setTheme(value);
+        App.state.config.theme = value;
+        if (typeof systemDark === 'boolean') Theme.setSystemDark(systemDark);
+        Theme.apply(value);
+    }
 
     function render() {
         const { status, applied, platform } = App.state;
@@ -55,6 +65,7 @@
     App.registerPage({
         name: 'system',
         init() {
+            Controls.segmented($('sys-theme'), changeTheme).set(Theme.setting());
             $('sys-wp-btn').addEventListener('click', () => Bridge.openLiveWallpaperPicker());
             $('sys-batt-btn').addEventListener('click', () => Bridge.requestBatteryOptimizationBypass());
             $('sys-restore-btn').addEventListener('click', restore);

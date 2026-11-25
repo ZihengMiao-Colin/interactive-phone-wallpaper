@@ -1,10 +1,10 @@
-# Interactive 3D Wallpaper · Android
+# Kirie · Android
 
 [简体中文](README.md) | **English**
 
-A pseudo-3D parallax live wallpaper for Android phones: pick an image, an AI model generates its depth map right on the phone, and as you tilt the phone the scene shifts by distance, like looking at a 3D scene through a window.
+Kirie (Japanese 切り絵, paper-cut art) is a pseudo-3D parallax live wallpaper for Android phones: pick an image, an AI model generates its depth map right on the phone, and as you tilt the phone the scene shifts by distance, like looking at a 3D scene through a window.
 
-The Windows version lives in [interactive-desktop-wallpaper](https://github.com/ZihengMiao-Colin/interactive-desktop-wallpaper); the parallax shader and depth-map algorithm of this Android version are ported from it.
+The Windows version lives in [interactive-desktop-wallpaper](https://github.com/ZihengMiao-Colin/interactive-desktop-wallpaper); the parallax shader and depth-map algorithm of this Android version are ported from it, and the UI uses the same style.
 
 ## Features
 
@@ -14,12 +14,14 @@ The Windows version lives in [interactive-desktop-wallpaper](https://github.com/
 - **Live preview in the app**: a phone-shaped preview follows the gyroscope, or your finger while you press it; switch between the image and its depth map.
 - **Live sync**: parameter changes and newly applied images show up on the home screen immediately. Picking, cropping and generating a depth map never touch the wallpaper in use; only "Apply wallpaper" does.
 - **Battery friendly**: rendering stops once the phone is still and the image has settled (0 fps at rest), at most 60 fps while moving, and pauses while the wallpaper is not visible.
+- **Dark / light theme**: choose dark, light or follow system in Settings; the status bar and launch screen follow it.
 - **Restore your previous wallpaper**: one tap in Settings opens the system wallpaper settings so you can pick your old wallpaper again (on Xiaomi it opens "System personalization").
 - **Xiaomi / HyperOS tweaks**: battery-optimization shortcut, lock-screen note, a working live-wallpaper entry (see "Xiaomi phones" below).
 
 ## Requirements
 
 - Android 7.0 (API 24) or later with OpenGL ES 2.0; works without a gyroscope (it just won't react to tilting).
+- Android System WebView 111 or later (needed by the UI styles; WebView updates itself through the app store).
 - Tested on a Xiaomi 24129PN74C, Android 16 (HyperOS), WebView 156. Other brands use standard Android APIs but have not been tested.
 
 ## Building
@@ -48,13 +50,13 @@ You can also open the project in Android Studio and run it from there.
 
 1. Open the app, tap "选择图片" (Choose image) and crop it to the screen ratio.
 2. Tap "生成深度图" (Generate depth map); it takes a few seconds (the first run unpacks the model and is slower).
-3. Tap "应用壁纸" (Apply wallpaper), choose "互动3D壁纸" in the system page, then tap "Set wallpaper".
+3. Tap "应用壁纸" (Apply wallpaper), choose "Kirie 壁纸" in the system page, then tap "Set wallpaper".
 4. Tune strength, smoothing, focus depth etc. on the "视差" (Parallax) tab; the home screen updates live.
 5. To go back to your old wallpaper: on the "设置" (Settings) tab tap "恢复原来的壁纸" (Restore previous wallpaper) and pick it again in the system page that opens.
 
 ### Xiaomi phones
 
-- **"Set as wallpaper" opens the live-wallpaper list**: HyperOS's "open this live wallpaper's preview" entry checks a Xiaomi-specific permission (AppOp 10045) that third-party apps don't have by default, and the page just closes. On Xiaomi the app opens the live-wallpaper list instead; choose "互动3D壁纸" there.
+- **"Set as wallpaper" opens the live-wallpaper list**: HyperOS's "open this live wallpaper's preview" entry checks a Xiaomi-specific permission (AppOp 10045) that third-party apps don't have by default, and the page just closes. On Xiaomi the app opens the live-wallpaper list instead; choose "Kirie 壁纸" there.
 - **Lock screen**: Xiaomi manages the lock-screen wallpaper separately and this app only changes the home screen. If the lock screen doesn't change, first apply any system live wallpaper in the Themes app, then set this app again.
 - **Killed in the background**: on the Settings tab tap "去关闭" to turn off battery optimization.
 
@@ -72,7 +74,7 @@ Unit tests (JVM: depth post-processing matching the Windows version's Pillow ref
 python -m http.server 8766
 ```
 
-- Main UI: `http://localhost:8766/app/src/main/assets/app/app.html` (use the browser's phone viewport). Outside the app, `app/bridge.js` uses a fake implementation with data from `dev/`; query parameters `?fail=depth` (generation fails), `?active=0` (this app is not the wallpaper), `?xiaomi=0` (not a Xiaomi phone).
+- Main UI: `http://localhost:8766/app/src/main/assets/app/app.html` (use the browser's phone viewport). Outside the app, `app/bridge.js` uses a fake implementation with data from `dev/`; query parameters `?fail=depth` (generation fails), `?active=0` (this app is not the wallpaper), `?xiaomi=0` (not a Xiaomi phone), `?theme=light` (light theme; also `dark`, `system`), `?dark=0` (simulate a light system theme).
 - Wallpaper page: `http://localhost:8766/app/src/main/assets/wallpaper/wallpaper.html`, then run `startWallpaper('/dev/sample.jpg', '/dev/sample-depth.png')` in the console.
 
 **On-device debugging**: debug builds enable WebView remote debugging, so you can inspect the pages from `chrome://inspect` in desktop Chrome. The wallpaper logs its frames per second to logcat:
@@ -90,7 +92,7 @@ adb logcat -s "[WallpaperJS]"
 | `app/src/main/java/.../depth/` | Depth-map generation: ONNX inference, Pillow-compatible resizing and post-processing (ported from the Windows version) |
 | `app/src/main/java/.../ui/`, `config/`, `util/` | JS bridge, config storage, gyroscope, file naming and cleanup, Xiaomi handling |
 | `app/src/main/assets/shared/` | Render engine, parallax shader, idle-frame logic (shared by the wallpaper and the in-app preview; partly copied from the Windows version) |
-| `app/src/main/assets/app/`, `ui/` | Main UI: Wallpaper / Parallax / Settings tabs, cropping, preview |
+| `app/src/main/assets/app/`, `ui/` | Main UI: Wallpaper / Parallax / Settings tabs, cropping, preview, theme; colors and controls (`ui/tokens.css`), fonts and icon are copied from the desktop version |
 | `app/src/main/assets/wallpaper/` | Page loaded inside the wallpaper service |
 | `app/src/test/` | JVM unit tests |
 | `dev/` | Sample image and depth map for the browser preview |

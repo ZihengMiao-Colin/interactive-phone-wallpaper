@@ -1,8 +1,11 @@
 package com.wallpaper.live3d
 
+import android.app.UiModeManager
 import android.app.WallpaperManager
 import android.content.ComponentName
 import android.content.Intent
+import android.content.res.Configuration
+import android.content.res.Resources
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -41,6 +44,8 @@ import java.io.File
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var root: View
+    private lateinit var configManager: ConfigManager
     private lateinit var appBridge: AppBridge
     private lateinit var sensorHelper: SensorHelper
 
@@ -57,6 +62,7 @@ class MainActivity : AppCompatActivity() {
 
         // 清掉没被配置引用的旧图片和旧深度图（启动时选中的就是正在用的那张）
         val config = ConfigManager(this)
+        configManager = config
         WallpaperFiles.cleanUnreferenced(
             File(filesDir, "wallpapers"), File(filesDir, "depth_cache"),
             config.getString(ConfigManager.KEY_CURRENT_IMAGE), config.getString(ConfigManager.KEY_DEPTH_FILE),
@@ -68,19 +74,15 @@ class MainActivity : AppCompatActivity() {
         webView = findViewById(R.id.webview)
 
         // 全面屏：内容画到系统栏下面，根布局按系统栏和刘海留出 padding（露出的是 --ink 底色）
-        val root = findViewById<View>(R.id.root)
+        root = findViewById(R.id.root)
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowCompat.getInsetsController(window, root).apply {
-            isAppearanceLightStatusBars = false
-            isAppearanceLightNavigationBars = false
-        }
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             WindowInsetsCompat.CONSUMED
         }
-        // 页面加载前的底色和页面一致，避免白屏闪一下
-        webView.setBackgroundColor(0xFF10161E.toInt())
+        // 系统栏图标深浅、底色按界面主题设；页面加载前的底色和页面一致，避免闪一下
+        applyTheme(syncNightMode = true)
 
         // 统一 WebView 配置 (含 WebViewAssetLoader)
         WebViewSetup.apply(this, webView)
@@ -131,6 +133,50 @@ class MainActivity : AppCompatActivity() {
             webView.destroy()
         }
         super.onDestroy()
+    }
+
+    /**
+     * 清单里 configChanges 含 uiMode：系统切深浅（或应用自己的深浅变了）时不重建 Activity、不重新加载页面，
+     * 在这里换系统栏和底色，再告诉页面系统现在的深浅（"跟随系统"时页面跟着变）
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applyTheme(syncNightMode = false)
+        webView.evaluateJavascript("window.onSystemThemeChange && onSystemThemeChange(${isSystemDark()})", null)
+    }
+
+    // ==================== 界面主题 ====================
+
+    /** 系统当前是不是深色。读系统资源，不受 setApplicationNightMode 设的应用自己的深浅影响 */
+    fun isSystemDark(): Boolean =
+        (Resources.getSystem().configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+    /**
+     * 按配置的界面主题设状态栏 / 导航栏图标深浅、系统栏后面的底色（--ink）和 WebView 底色（--bg）。
+     * 页面自己的颜色由 theme.js 管。
+     *
+     * syncNightMode：Android 12 起顺带把应用自己的深浅告诉系统（会一直记着），下次冷启动的启动画面
+     * 按它挑 res/values 或 res/values-notnight-v31 里的底色。只在启动和用户换主题时传 true：
+     * 这一步本身会触发 onConfigurationChanged，在那里再设会来回触发。
+     */
+    fun applyTheme(syncNightMode: Boolean) {
+        val theme = configManager.theme()
+        val dark = ConfigManager.resolveDark(theme, isSystemDark())
+        root.setBackgroundColor(if (dark) INK_DARK else INK_LIGHT)
+        webView.setBackgroundColor(if (dark) BG_DARK else BG_LIGHT)
+        WindowCompat.getInsetsController(window, root).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
+        }
+        if (syncNightMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getSystemService(UiModeManager::class.java)?.setApplicationNightMode(
+                when (theme) {
+                    "light" -> UiModeManager.MODE_NIGHT_NO
+                    "system" -> UiModeManager.MODE_NIGHT_AUTO
+                    else -> UiModeManager.MODE_NIGHT_YES
+                }
+            )
+        }
     }
 
     // ==================== AppBridge 回调 ====================
@@ -220,7 +266,7 @@ class MainActivity : AppCompatActivity() {
             // 某些 ROM 可能不支持此 Intent
             Toast.makeText(
                 this,
-                "请手动前往: 设置 → 应用 → 互动3D壁纸 → 电池 → 无限制",
+                "请手动前往: 设置 → 应用 → ${getString(R.string.app_name)} → 电池 → 无限制",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -237,5 +283,13 @@ class MainActivity : AppCompatActivity() {
         } else {
             Toast.makeText(this, "悬浮窗权限已授予", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private companion object {
+        // 和 assets/ui/tokens.css 的 --ink / --bg 一致（夜间 / 日间），改了要两边同步
+        const val INK_DARK = 0xFF141516.toInt()
+        const val BG_DARK = 0xFF0F0F10.toInt()
+        const val INK_LIGHT = 0xFFEEF0F1.toInt()
+        const val BG_LIGHT = 0xFFF5F5F5.toInt()
     }
 }
