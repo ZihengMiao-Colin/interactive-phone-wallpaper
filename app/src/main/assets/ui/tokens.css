@@ -1,38 +1,148 @@
 /* ============================================================================
- * tokens.css — 颜色、字体和基础控件（基于桌面项目 ui/tokens.css，按触控放大了尺寸）
- * 页面布局在 app/app.css 里
+ * tokens.css — 主界面的颜色、字体和基础控件（页面布局在 app/app.css）
+ *
+ * 复制自桌面项目 ui/tokens.css（C:\Users\24418\Desktop\2\壁纸），改动要两边同步。
+ * 手机版和桌面不同的地方：
+ *   1. 主题选择器：桌面跟着 prefers-color-scheme 走；手机 WebView 的 prefers-color-scheme 跟的是
+ *      应用主题，不是用户在设置里选的，所以日间用 :root[data-theme="light"]，由 app/theme.js 写在 <html> 上
+ *   2. 触控尺寸：按钮 44px（.sm 36px）、分段每段 36px、开关 48×28、滑块 32px 高 / 竖条 10×24、滑块宽 100%
+ *   3. 字体：正文用手机系统字体，去掉了 Windows 字体名
+ *   4. 去掉了手机用不到的 kbd、.halftone、--warp
+ *   5. 悬停样式收进 @media (hover: hover)：手机上点完按钮 :hover 会一直留着；滑块按住时变主色
+ *
+ * 风格：黑白灰为主、青色强调。盒子一律直角，层级靠明度差、色条加细框、黑白反转和角标，
+ * 不用切角、磨砂、发光和叠加阴影。主色只给选中状态、主要操作和强调色条。
+ * 色值来自个人 skill ark-style-ui 的 references/tokens.md（变量名沿用项目原来的）。
+ * 用了 color-mix() 和 :has()，要求 WebView（Chromium）111 以上。
  * ============================================================================ */
 
+/* 字体自带在 ui/fonts/（SIL OFL）：中文大标题的思源宋体、英文小字和数字用的 Saira。
+   正文用手机系统字体 */
+@import url("fonts/noto-serif-sc.css");
+
+@font-face {
+    font-family: "Saira";
+    font-style: normal;
+    font-weight: 100 900;
+    font-stretch: 50% 125%;
+    font-display: swap;
+    src: url("fonts/saira-wdth.woff2") format("woff2-variations");
+}
+
+/* 夜间（默认） */
 :root {
-    --ink: #0b0f15;              /* 侧边栏、标题栏、分段按钮底 */
-    --bg: #10161e;               /* 内容区 */
-    --surface: #161e28;          /* 列表 / 分组底色 */
-    --raised: #1d2733;           /* 按钮、输入框 */
-    --raised-hover: #243140;
-    --line: rgba(255, 255, 255, 0.07);
-    --line-strong: rgba(255, 255, 255, 0.13);
-    --text: #e6ebf2;
-    --text-2: #97a3b4;
-    --text-3: #627084;
-    --accent: #7ecfff;
-    --accent-hover: #9adaff;
-    --accent-soft: rgba(126, 207, 255, 0.14);
-    --accent-ink: #062033;       /* 强调色底上的文字 */
-    --success: #6fe0a6;
-    --danger: #ff7d7d;
-    --warn: #ffcc6a;
-    --warp: #ffcc6a;             /* 自由变形 */
-    --far: #161a21;              /* 深度图：远 */
-    --near: #eef2f6;             /* 深度图：近 */
-    --track: #2d3946;            /* 滑块轨道、关闭的开关 */
-    --r-lg: 12px;
-    --r-md: 8px;
-    --r-sm: 6px;
-    --font: system-ui, "Noto Sans CJK SC", sans-serif;
+    /* 灰阶：中性灰，不带蓝 */
+    --ink: #141516;              /* 标题栏、侧边栏 */
+    --bg: #0f0f10;               /* 内容区 */
+    --bg-2: #141516;             /* 比底色略高：提示框、空状态 */
+    --surface: #1a1b1c;          /* 面板、卡片 */
+    --raised: #232425;           /* 面板里再高一级：标题栏、按钮、选中项 */
+    --raised-hover: color-mix(in srgb, var(--raised) 94%, var(--text));
+    --line: #2f3133;
+    --line-strong: #4a4c4f;
+    --text: #f0f0f0;
+    --text-2: #b1b1b1;           /* 次要文字、英文小字 */
+    --text-3: #6f7071;           /* 只给不重要的编号和图标 */
+    /* 主色：夜间青、日间蓝。只给选中、主要操作和强调色条，不给装饰文字 */
+    --accent: #18d1ff;           /* 主色填充：主按钮、开关、选中的分段 */
+    --accent-ink: #000000;       /* 主色底上的文字 */
+    --accent-edge: #18d1ff;      /* 主色块的描边 */
+    --accent-text: #18d1ff;      /* 主色当文字或细线用 */
+    --accent-hover: color-mix(in srgb, var(--accent) 80%, var(--text));
+    --accent-soft: color-mix(in srgb, var(--accent-text) 12%, transparent);
+    --accent-muted: color-mix(in srgb, var(--accent-text) 34%, transparent);
+    /* 黄色只给警示斜纹；红色只表示危险 */
+    --caution: #ffd800;
+    --caution-ink: #1d1f20;
+    --danger: #ff5c5c;
+    --danger-solid: #711111;     /* 危险按钮实底，两套主题一样 */
+    --danger-edge: #a40000;
+    --warn: #ffb340;
+    --success: #4fd18f;
+    --inv: var(--text);          /* 反白块：夜间近白，日间近黑 */
+    --hover: color-mix(in srgb, var(--text) 6%, transparent);
+    --stripe: color-mix(in srgb, var(--text) 8%, transparent);
+    --far: #0f0f10;              /* 深度图：远 */
+    --near: #f0f0f0;             /* 深度图：近 */
+    --track: var(--line-strong); /* 滑块和进度条没走到的部分 */
+    /* 阴影只有一层、落在正下方，只给浮起来的东西（弹窗、提示条、盖在壁纸上的工具条） */
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-2: 0 4px 14px rgba(0, 0, 0, 0.5);
+    --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.6);
+    --bar: 4px;                  /* 色条 */
+    --bar-lg: 8px;               /* 页面标题的粗色条 */
+    --font: system-ui, "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
+    --f-display: "Saira", system-ui, sans-serif;
+    --f-data: "Saira", system-ui, sans-serif;
+    --f-serif: "Noto Serif SC Variable", "Noto Serif SC", "Noto Serif CJK SC", serif;
+    --ease: cubic-bezier(.2, .8, .2, 1);
+    color-scheme: dark;
+}
+
+/* 日间：只换颜色，结构不变（色值和桌面一样）。
+   设置里选的主题由 app/theme.js 写成 <html data-theme="light|dark">；
+   预览、裁剪框上压在图片上的浮层在 app.css 里固定用夜间颜色，不跟着变。
+   改了 --ink、--bg 要同步 res/values/colors.xml、res/values-night/colors.xml 和 MainActivity 里的底色 */
+:root[data-theme="light"] {
+    --ink: #eef0f1;
+    --bg: #f5f5f5;
+    --bg-2: #eef0f1;
+    --surface: #ffffff;
+    --raised: #f5f5f5;
+    --line: #d9dbdc;
+    --line-strong: #b1b1b1;
+    --text: #1d1f20;
+    --text-2: #626262;
+    --text-3: #8d8d8d;
+    --accent: #0075a9;
+    --accent-ink: #ffffff;
+    --accent-edge: #0075a9;
+    --accent-text: #0072a8;
+    --danger: #c8102e;
+    --warn: #946000;
+    --success: #187a51;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.08);
+    --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --shadow-3: 0 12px 32px rgba(0, 0, 0, 0.14);
+    color-scheme: light;
 }
 
 /* 控件都设了 display，hidden 属性要压过它们 */
 [hidden] { display: none !important; }
+
+/* 进场：渐显 + 上移 8px（换页、弹窗） */
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---------- 面板：实底 + 1px 细框，直角 ----------
+   用 --p-line / --p-bg 调描边和底色 */
+.panel {
+    position: relative;
+    border: 1px solid var(--p-line, var(--line));
+    background: var(--p-bg, var(--surface));
+}
+
+/* 盖在壁纸上的浮层（摆放提示、工具条、Toast、加载提示）：实底面板加一层正下方的阴影，不用磨砂 */
+.float {
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    box-shadow: var(--shadow-3);
+    color: var(--text);
+}
+
+/* 警示斜纹：只给警告和有风险的操作 */
+.hz { background: repeating-linear-gradient(-45deg, var(--caution) 0 5px, var(--caution-ink) 5px 10px); }
+
+/* 英文大写小字：只是装饰，用灰色（青色会被当成能点的链接） */
+.en {
+    font-family: var(--f-display);
+    font-size: 11px;
+    font-weight: 600;
+    font-stretch: 112%;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+    color: var(--text-2);
+}
 
 /* ---------- 图标 ---------- */
 svg.i {
@@ -42,91 +152,116 @@ svg.i {
     fill: none;
     stroke: currentColor;
     stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
 }
 
 :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent-text);
     outline-offset: 2px;
 }
 
-/* ---------- 按钮 ---------- */
+/* ---------- 按钮：直角、细框、没有阴影；按下沉 1px ----------
+   .contrast 黑白反转，给"应用""确定"这类确认动作；.primary 主色实底，一个区域只放一个；
+   .danger 深红实底，只给删了回不来的操作。
+   手机上点完按钮 :hover 会一直留着，所以悬停样式都放在 @media (hover: hover) 里（文件末尾） */
 .btn {
+    --b-bg: var(--raised);
+    --b-fg: var(--text);
+    --b-line: var(--line-strong);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 7px;
-    height: 42px;
+    height: 44px;
     padding: 0 16px;
-    border: 1px solid var(--line-strong);
-    border-radius: var(--r-md);
-    background: var(--raised);
-    color: var(--text);
+    border: 1px solid var(--b-line);
+    background: var(--b-bg);
+    color: var(--b-fg);
     font: inherit;
+    font-weight: 600;
+    line-height: 1;
     white-space: nowrap;
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    transition: background-color 0.15s var(--ease), border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
-.btn:hover { background: var(--raised-hover); }
-.btn.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 600;
-}
-.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-.btn.ghost { background: none; border-color: transparent; color: var(--text-2); }
-.btn.ghost:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
-.btn.danger { color: var(--danger); }
-.btn.sm { height: 34px; padding: 0 12px; font-size: 13px; }
-.btn.icon { width: 42px; padding: 0; }
-.btn.sm.icon { width: 34px; }
-.btn:disabled,
-.btn:disabled:hover {
-    opacity: 0.4;
-    cursor: not-allowed;
-    background: var(--raised);
-    border-color: var(--line-strong);
-}
-.btn.primary:disabled,
-.btn.primary:disabled:hover { background: var(--accent); border-color: var(--accent); }
-.btn.ghost:disabled,
-.btn.ghost:disabled:hover { background: none; border-color: transparent; }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary { --b-bg: var(--accent); --b-fg: var(--accent-ink); --b-line: var(--accent-edge); }
+.btn.contrast { --b-bg: var(--inv); --b-fg: var(--bg); --b-line: var(--inv); }
+.btn.danger { --b-bg: var(--danger-solid); --b-fg: #fff; --b-line: var(--danger-solid); }
+.btn.ghost { --b-bg: transparent; --b-line: transparent; --b-fg: var(--text-2); }
+.btn.sm { height: 36px; padding: 0 12px; font-size: 13px; }
+.btn.icon { width: 44px; padding: 0; }
+.btn.sm.icon { width: 36px; }
 
-/* ---------- 分段按钮 ---------- */
+/* ---------- 开关：方形 ---------- */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 28px;
+    flex-shrink: 0;
+}
+.switch input {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+.switch span {
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--line-strong);
+    background: var(--raised-hover);
+    transition: background-color 0.15s, border-color 0.15s;
+}
+.switch span::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    width: 20px;
+    height: 20px;
+    background: var(--text-2);
+    transition: transform 0.15s var(--ease), background-color 0.15s;
+}
+.switch input:checked + span { background: var(--accent); border-color: var(--accent-edge); }
+.switch input:checked + span::after { transform: translateX(20px); background: var(--accent-ink); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.switch input:disabled { cursor: not-allowed; }
+.switch input:disabled + span { opacity: 0.45; }
+
+/* ---------- 分段按钮：一条细框，选中项主色实底 ---------- */
 .seg {
     display: inline-flex;
-    gap: 2px;
-    padding: 3px;
-    border-radius: var(--r-md);
-    background: var(--ink);
+    border: 1px solid var(--line-strong);
 }
 .seg button {
-    height: 30px;
-    padding: 0 12px;
+    height: 36px;
+    padding: 0 14px;
     border: 0;
-    border-radius: var(--r-sm);
     background: none;
     color: var(--text-2);
     font: inherit;
-    font-size: 12.5px;
+    font-size: 13px;
+    line-height: 1;
     white-space: nowrap;
     cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
 }
-.seg button:hover { color: var(--text); }
-.seg button.on {
-    background: var(--raised-hover);
-    color: var(--text);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.seg button:focus-visible { outline-offset: -2px; }
 
-/* ---------- 滑块：已走过的部分用强调色（--p 由 UIControls.paintRange 设置） ---------- */
+/* ---------- 滑块：已走过的部分用主色（--p 由 UIControls.paintRange 设置），竖条滑块 ---------- */
 input[type=range] {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    height: 28px;
+    height: 32px;
     margin: 0;
     background: none;
     cursor: pointer;
@@ -134,75 +269,82 @@ input[type=range] {
 }
 input[type=range]::-webkit-slider-runnable-track {
     height: 4px;
-    border-radius: 4px;
-    background: linear-gradient(90deg, var(--accent) var(--p), var(--track) var(--p));
+    background: linear-gradient(90deg, var(--accent-text) var(--p), var(--track) var(--p));
 }
 input[type=range]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 20px;
-    height: 20px;
-    margin-top: -8px;
-    border-radius: 50%;
+    width: 10px;
+    height: 24px;
+    margin-top: -10px;
     background: var(--text);
-    box-shadow: 0 0 0 3px var(--bg), 0 1px 3px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 0 1px var(--surface);    /* 一圈底色，把滑块和轨道隔开 */
+    transition: background-color 0.15s;
 }
-input[type=range]:hover::-webkit-slider-thumb { background: #fff; }
+input[type=range]:active::-webkit-slider-thumb { background: var(--accent-text); }
+input[type=range]:disabled { cursor: not-allowed; opacity: 0.45; }
 input[type=range]:focus-visible { outline: none; }
-input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--accent); }
+input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 1px var(--surface), 0 0 0 3px var(--accent-text); }
 
 /* 深度滑块：轨道就是一段深度图，左远右近 */
 .depth-range {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--text-3);
+    color: var(--text-2);
     font-size: 11.5px;
 }
 input[type=range].depth::-webkit-slider-runnable-track {
     height: 6px;
     background: linear-gradient(90deg, var(--far), var(--near));
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 input[type=range].depth::-webkit-slider-thumb {
-    width: 20px;
-    height: 20px;
-    margin-top: -7px;
-    border: 3px solid var(--accent);
+    width: 12px;
+    height: 24px;
+    margin-top: -9px;
+    border: 2px solid var(--accent-text);
     background: transparent;
-    box-shadow: 0 0 0 2px var(--bg);
 }
 
-/* ---------- 标签胶囊 ---------- */
+/* ---------- 状态标签：淡色底 + 同色文字 + 小方点（带图标时图标代替方点），不只靠颜色 ---------- */
 .chip {
+    --c: var(--text-2);
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     height: 22px;
     padding: 0 8px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--text-2);
-    font-size: 11.5px;
+    background: color-mix(in srgb, var(--c) 12%, transparent);
+    color: var(--c);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
     white-space: nowrap;
 }
+.chip::before { content: ''; flex: none; width: 6px; height: 6px; background: currentColor; }
+.chip:has(svg.i)::before { display: none; }
 .chip svg.i { width: 13px; height: 13px; }
-.chip.ok { background: rgba(111, 224, 166, 0.12); color: var(--success); }
-.chip.accent { background: var(--accent-soft); color: var(--accent); }
-.chip.warn { background: rgba(255, 204, 106, 0.12); color: var(--warn); }
-.chip.error { background: rgba(255, 125, 125, 0.12); color: var(--danger); }
+.chip.ok { --c: var(--success); }
+.chip.accent { --c: var(--accent-text); }
+.chip.warn { --c: var(--warn); }
+.chip.error { --c: var(--danger); }
 
-
-/* ---------- 毛玻璃浮层（壁纸页的提示、工具条、Toast） ---------- */
-.glass {
-    background: rgba(14, 19, 26, 0.78);
-    -webkit-backdrop-filter: blur(14px) saturate(1.3);
-    backdrop-filter: blur(14px) saturate(1.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-    color: var(--text);
+/* 悬停样式只给有鼠标的设备（手机上点完会一直停在悬停状态） */
+@media (hover: hover) {
+    .btn:hover:not(:disabled) { --b-bg: var(--raised-hover); --b-line: var(--text-2); }
+    /* 悬停时的 3px 淡色外圈是焦点语言，不是装饰 */
+    .btn.primary:hover:not(:disabled) { --b-bg: var(--accent-hover); --b-line: var(--accent-hover); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .btn.contrast:hover:not(:disabled) { --b-bg: var(--text-2); --b-line: var(--text-2); }
+    .btn.danger:hover:not(:disabled) { --b-bg: var(--danger-edge); --b-line: var(--danger-edge); }
+    .btn.ghost:hover:not(:disabled) { --b-bg: var(--hover); --b-line: transparent; --b-fg: var(--text); }
+    .btn.ghost.danger:hover:not(:disabled) { --b-bg: color-mix(in srgb, var(--danger) 12%, transparent); --b-fg: var(--danger); }
+    .switch:hover span { border-color: var(--text-2); }
+    .seg button:hover:not(.on) { background: var(--hover); color: var(--text); }
+    input[type=range]:hover::-webkit-slider-thumb { background: var(--accent-text); }
 }
 
-/* 系统关了动画效果时去掉界面过渡（不动唱片机、天气这些壁纸内容本身的动画） */
+/* 系统关了动画效果时去掉界面过渡 */
 @media (prefers-reduced-motion: reduce) {
-    .btn, .seg button { transition: none; }
+    .btn, .switch span, .switch span::after, .seg button,
+    input[type=range]::-webkit-slider-thumb { transition: none; }
 }
