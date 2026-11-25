@@ -1,6 +1,11 @@
 /* ============================================================================
  * app.css — 主界面布局（颜色和基础控件在 ui/tokens.css）
  * 结构：上面是三个页面（各自滚动），下面是页签栏；系统栏的避让由原生层的 padding 处理
+ *
+ * 外观照桌面 settings/settings.css：卡片用 .panel（实底 + 1px 细框，直角）；
+ * 壁纸页顶栏 = 桌面标题栏（K 图标 + Kirie + 中文小字）；
+ * 页面标题：左边 8px 粗色条 + 宋体大字 + 英文小字（.en）；分组标题：左边 4px 色条 + 黑体，不配英文。
+ * 压在图片上的东西（预览上的提示、裁剪框）固定用夜间颜色，不跟日间变浅。
  * ============================================================================ */
 
 * { box-sizing: border-box; }
@@ -13,13 +18,18 @@ body {
     overflow: hidden;
     background: var(--bg);
     color: var(--text);
-    font: 14px/1.45 var(--font);
+    font: 14px/1.7 var(--font);
+    font-kerning: normal;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
     -webkit-user-select: none;
     user-select: none;
 }
 
 h1, h2, p { margin: 0; }
+h1, h2 { font-feature-settings: "palt"; }
+button { color: inherit; }
 
 /* ---------- 页面 ---------- */
 .pages {
@@ -32,18 +42,71 @@ h1, h2, p { margin: 0; }
     inset: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 4px 16px 24px;
+    padding: 0 16px 28px;
 }
+/* 换页：渐显 + 上移一点，表示换了一个地方 */
+.page:not([hidden]) { animation: fade-up 0.32s var(--ease); }
 
 .topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    height: 52px;
-    margin-bottom: 4px;
+    height: 56px;
 }
-.topbar h1 { font-size: 20px; font-weight: 600; }
+
+/* 壁纸页顶栏：和桌面标题栏一样（图标两套主题都用本来的颜色） */
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 400;
+}
+.brand .logo { display: block; width: 22px; height: 22px; flex-shrink: 0; }
+.brand b { font-family: var(--f-display); font-size: 17px; font-weight: 600; letter-spacing: 0.02em; line-height: 1; }
+.brand .sub {
+    padding-left: 10px;
+    border-left: 1px solid var(--line-strong);
+    color: var(--text-2);
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+/* 页面标题：左边一条粗色条，宋体大字 + 英文小字 */
+.page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 56px;
+    padding: 10px 0 6px;
+}
+.page-head h1 {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding-left: 14px;
+    border-left: var(--bar-lg) solid var(--accent);
+    font: 900 24px/1.1 var(--f-serif);
+    letter-spacing: -0.05em;
+}
+.page-head h1 .en { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }
+
+/* 分组标题：左边一条色条，黑体 */
+.group-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 22px;
+    margin: 28px 0 12px;
+    padding-left: 12px;
+    border-left: var(--bar) solid var(--accent);
+}
+.group-head h2 { font: 700 15px/1.2 var(--font); }
 
 /* ---------- 页签栏 ---------- */
 .tabbar {
@@ -79,40 +142,29 @@ h1, h2, p { margin: 0; }
 .tabbar button.on { color: var(--accent); }
 .tabbar button.on .pill { background: var(--accent-soft); }
 
-/* ---------- 卡片、分组、表单行 ---------- */
-.card {
-    margin-bottom: 14px;
-    padding: 14px;
-    border: 1px solid var(--line);
-    border-radius: var(--r-lg);
-    background: var(--surface);
-}
-.group-title {
-    margin: 18px 2px 8px;
-    color: var(--text-2);
-    font-size: 13px;
-    font-weight: 600;
-}
-.divider { height: 1px; margin: 14px -14px; background: var(--line); }
+/* ---------- 卡片（.panel 给底色和细框）、表单行 ---------- */
+.card { padding: 16px; }
+.divider { height: 1px; margin: 16px -16px; background: var(--line); }
 
-.field + .field { margin-top: 16px; }
+.field + .field { margin-top: 18px; }
 .field-head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    margin-bottom: 4px;
+    gap: 12px;
 }
 .field-head label { font-weight: 500; }
-.field-head .val { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
-.note { margin-top: 4px; color: var(--text-3); font-size: 12px; }
-.ends { display: flex; justify-content: space-between; color: var(--text-3); font-size: 11px; }
+/* 数值不是能点的东西，用正文色（青色只给选中和主要操作） */
+.field-head .val { color: var(--text); font: 600 13px/1 var(--f-data); }
+.note { margin-top: 2px; color: var(--text-2); font-size: 12px; line-height: 1.6; }
+.ends { display: flex; justify-content: space-between; color: var(--text-2); font-size: 11px; line-height: 1.4; }
 
 .btn.block { width: 100%; }
 .btn-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
-    margin: 16px 0 10px;
+    margin: 18px 0 10px;
 }
 
 /* 设置页的列表行 */
@@ -167,38 +219,53 @@ h1, h2, p { margin: 0; }
 .kv span:first-child { flex-shrink: 0; color: var(--text-2); }
 .kv span:last-child { text-align: right; }
 
-/* ---------- 顶栏状态胶囊 ---------- */
-.status-chip { height: 24px; padding: 0 10px; font-size: 12px; }
-.status-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-
-/* ---------- 实时预览（手机形状，宽高比 = 屏幕比例） ---------- */
+/* ---------- 实时预览（手机形状，宽高比 = 屏幕比例）：页面的主视觉，四角加 L 形细线 ---------- */
+.preview-frame {
+    position: relative;
+    width: fit-content;
+    margin: 8px auto 0;
+}
+.brk {
+    --b: var(--text-2);
+    --l: 12px;
+    position: absolute;
+    inset: -7px;
+    pointer-events: none;
+    background:
+        linear-gradient(var(--b), var(--b)) left top / var(--l) 1px,
+        linear-gradient(var(--b), var(--b)) left top / 1px var(--l),
+        linear-gradient(var(--b), var(--b)) right top / var(--l) 1px,
+        linear-gradient(var(--b), var(--b)) right top / 1px var(--l),
+        linear-gradient(var(--b), var(--b)) left bottom / var(--l) 1px,
+        linear-gradient(var(--b), var(--b)) left bottom / 1px var(--l),
+        linear-gradient(var(--b), var(--b)) right bottom / var(--l) 1px,
+        linear-gradient(var(--b), var(--b)) right bottom / 1px var(--l);
+    background-repeat: no-repeat;
+}
 .preview {
     position: relative;
-    margin: 0 auto;
     aspect-ratio: var(--screen-aspect, 0.4615);
     overflow: hidden;
     border: 1px solid var(--line-strong);
-    border-radius: 18px;
     background: #000;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
     touch-action: none;
 }
 .preview.big { height: 52vh; }
 .preview.small { height: 34vh; }
 .preview canvas { display: block; }
+/* 预览上的提示压在任意图片上：固定用夜间的颜色 */
 .preview .hint {
     position: absolute;
     top: 8px;
     left: 8px;
     right: 8px;
     z-index: 2;
-    padding: 5px 8px;
-    border-radius: 8px;
-    background: rgba(11, 15, 21, 0.55);
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
+    padding: 4px 8px;
+    border-left: var(--bar) solid #18d1ff;
+    background: rgba(15, 15, 16, 0.8);
+    color: #f0f0f0;
     font-size: 11px;
-    text-align: center;
+    line-height: 1.5;
     transition: opacity 0.4s;
     pointer-events: none;
 }
@@ -214,52 +281,62 @@ h1, h2, p { margin: 0; }
     place-items: center;
     pointer-events: none;
 }
-.preview .veil { background: rgba(11, 15, 21, 0.35); }
+.preview .veil { background: rgba(15, 15, 16, 0.35); }
 .preview .veil span {
+    margin: 0 10px;
     padding: 6px 10px;
-    border-radius: 8px;
-    background: rgba(11, 15, 21, 0.7);
-    color: var(--text-2);
+    background: rgba(15, 15, 16, 0.8);
+    color: #f0f0f0;
     font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
 }
 .preview.no-depth .veil { display: grid; }
 .preview .empty-state {
     align-content: center;
-    gap: 8px;
-    background: var(--surface);
-    color: var(--text-3);
+    gap: 10px;
+    background: var(--bg-2);
+    color: var(--text-2);
     font-size: 12px;
 }
-.preview .empty-state svg.i { width: 28px; height: 28px; justify-self: center; }
+.preview .empty-state svg.i { width: 28px; height: 28px; justify-self: center; stroke-width: 1.4; color: var(--text-3); }
 .preview.empty .empty-state { display: grid; }
 
 .under-preview {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    min-height: 36px;
-    margin: 10px 0 12px;
+    gap: 12px;
+    min-height: 38px;
+    margin: 16px 0 12px;
 }
 .meta {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     color: var(--text-2);
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
+    font: 600 12px/1 var(--f-data);
 }
+.meta .chip { font-family: var(--font); }
 
-/* ---------- 深度图状态 ---------- */
-.status { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-.status .sub { margin-left: auto; color: var(--text-3); font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
+/* ---------- 深度图状态：图标 + 文字，不只靠颜色 ---------- */
+.status { display: flex; align-items: center; gap: 8px; font-weight: 700; line-height: 1.4; }
+.status .sub { margin-left: auto; color: var(--text-2); font: 600 12px/1 var(--f-data); }
 .status.none { color: var(--text-2); }
 .status.ready { color: var(--success); }
-.status.busy { color: var(--accent); }
-.status.busy .sub { color: var(--text-2); }
+.status.busy { color: var(--accent-text); }
 .status.error { color: var(--danger); }
-.progress { height: 4px; margin: 10px 0 6px; overflow: hidden; border-radius: 2px; background: var(--track); }
-.progress i { display: block; width: 0; height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.3s; }
-.progress-text { margin-top: 6px; color: var(--text-3); font-size: 12px; word-break: break-all; }
+/* 分段进度条 */
+.progress {
+    height: 8px;
+    margin: 12px 0 4px;
+    overflow: hidden;
+    background: var(--track);
+    -webkit-mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
+    mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
+}
+.progress i { display: block; width: 0; height: 100%; background: var(--accent-text); transition: width 0.3s var(--ease); }
+.progress-text { margin-top: 6px; color: var(--text-2); font-size: 12px; line-height: 1.6; word-break: break-all; }
 .progress-text.error { color: var(--danger); }
 
 svg.i.spin { animation: spin 1s linear infinite; }
@@ -349,5 +426,7 @@ svg.i.spin { animation: spin 1s linear infinite; }
 .toast.info svg.i { color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {
+    .page:not([hidden]) { animation: none; }
+    .preview .hint, .progress i { transition: none; }
     .toast, .tabbar .pill { transition: none; }
 }

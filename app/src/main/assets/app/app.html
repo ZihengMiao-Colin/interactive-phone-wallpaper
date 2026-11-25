@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>互动3D壁纸</title>
+    <title>Kirie 壁纸</title>
     <link rel="stylesheet" href="../ui/tokens.css">
     <link rel="stylesheet" href="app.css">
     <!-- 主题要在第一次画出来之前定好 -->
@@ -15,14 +15,17 @@
         <!-- ====== 壁纸 ====== -->
         <section class="page" data-page="wallpaper" aria-label="壁纸">
             <header class="topbar">
-                <h1>互动 3D 壁纸</h1>
-                <span class="chip status-chip" id="wp-status-chip"><span class="dot"></span><span id="wp-status-text">未设为桌面壁纸</span></span>
+                <h1 class="brand"><img class="logo" src="../ui/icon.svg" alt=""><b>Kirie</b><span class="sub">互动 3D 壁纸</span></h1>
+                <span class="chip status-chip" id="wp-status-chip"><span id="wp-status-text">未设为桌面壁纸</span></span>
             </header>
 
-            <div class="preview big" id="preview-big">
-                <div class="hint">倾斜手机，或按住拖动预览</div>
-                <div class="veil"><span>生成深度图后可以预览视差</span></div>
-                <div class="empty-state"><svg class="i"><use href="#i-image-plus"/></svg><span>选一张图片开始</span></div>
+            <div class="preview-frame">
+                <div class="preview big" id="preview-big">
+                    <div class="hint">倾斜手机，或按住拖动预览</div>
+                    <div class="veil"><span>生成深度图后可以预览视差</span></div>
+                    <div class="empty-state"><svg class="i"><use href="#i-image-plus"/></svg><span>选一张图片开始</span></div>
+                </div>
+                <i class="brk"></i>
             </div>
 
             <div class="under-preview">
@@ -33,7 +36,7 @@
                 </span>
             </div>
 
-            <div class="card">
+            <div class="panel card">
                 <div class="status none" id="wp-depth-status"></div>
                 <div class="progress" id="wp-progress" hidden><i></i></div>
                 <p class="progress-text" id="wp-progress-text" hidden></p>
@@ -47,7 +50,7 @@
                     <button type="button" class="btn" id="wp-pick"><svg class="i"><use href="#i-image-plus"/></svg>选择图片</button>
                     <button type="button" class="btn" id="wp-generate"><svg class="i"><use href="#i-wand-sparkles"/></svg><span>生成深度图</span></button>
                 </div>
-                <button type="button" class="btn primary block" id="wp-apply"><svg class="i"><use href="#i-check"/></svg><span>应用壁纸</span></button>
+                <button type="button" class="btn contrast block" id="wp-apply"><svg class="i"><use href="#i-check"/></svg><span>应用壁纸</span></button>
             </div>
         </section>
 
