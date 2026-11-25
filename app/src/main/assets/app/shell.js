@@ -35,7 +35,7 @@ window.Shell = (() => {
      */
     function toast(message, kind = 'info') {
         const el = document.getElementById('toast');
-        el.className = 'toast glass ' + kind;
+        el.className = 'toast ' + kind;
         el.replaceChildren(Icons.svg(TOAST_ICON[kind] || 'info'), Controls.el('span', null, message));
         el.hidden = false;
         void el.offsetWidth;   // 重新触发淡入
