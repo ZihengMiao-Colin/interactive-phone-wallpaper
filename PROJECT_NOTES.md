@@ -131,6 +131,7 @@ docs/superpowers/                设计文档和实施计划
 - **启动底色**：`values/colors.xml` 一律夜间，`values-notnight-v31/colors.xml` 放日间；Android 12 起 `UiModeManager.setApplicationNightMode` 把用户选的主题告诉系统（系统会记着），启动画面按它挑。Android 12 以下启动画面只能跟系统深浅，默认主题是夜间，所以那里一律夜间（选了日间的人启动那一下是深色）。
 - **名字和图标**：`app_name` = Kirie 壁纸，壁纸说明"互动 3D 视差动态壁纸"，删了没用的旧字符串和颜色。自适应图标：底色 `#0f0f10`，前景是桌面 `assets/icon.svg` 的三个 K（路径原样，缩放 50/212 放进 66dp 安全区）。包名 `com.wallpaper.live3d`、prefs 文件名都没改（改包名等于换一个应用，已装的会丢设置）。
 - `AppBridge.setTheme(value)` 返回系统当前是不是深色：主题强制成夜间 / 日间时系统切深浅不会触发 `onConfigurationChanged`，页面里记的系统深浅会过期，改选"跟随系统"时用返回值。
+- **真机（2026-11-24，小米 24129PN74C / Android 16 / WebView 157）**：三个页面夜间、日间都正常，宋体和 Saira 都加载了；切主题不重新加载页面（选中的图还在），日间时状态栏 / 导航栏图标变深色、底色是日间 `--ink`；"跟随系统"时 `adb shell cmd uimode night no|yes` 界面马上跟着变。从"日间"切到"跟随系统"（系统深色）时 `setTheme` 返回的 `systemDark` 是应用自己被强制的浅色（`Resources.getSystem()` 带着应用自己的深浅），约 10ms 后 `onConfigurationChanged` 把它纠正成深色，肉眼看不出。冷启动：选日间时小米开应用动画里的窗口是浅色、选夜间是深色。应用详情和系统动态壁纸列表里都是"Kirie 壁纸"和 K 图标。没测：设成桌面壁纸后的视差手感（这轮没动渲染）。测试方法：`adb forward tcp:9333 localabstract:webview_devtools_remote_<pid>` 后用 DevTools 协议的 `Runtime.evaluate` 点页面（小米默认不让 adb 模拟点击）。
 
 ## 6. 已知但没做
 
