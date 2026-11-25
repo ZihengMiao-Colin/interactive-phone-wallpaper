@@ -88,4 +88,51 @@ class ConfigManagerTest {
             ConfigManager.RENDER_KEYS,
         )
     }
+
+    // ==================== 界面主题 ====================
+
+    @Test
+    fun theme_defaultsToDark() {
+        val config = ConfigManager(FakeSharedPreferences())
+        assertEquals("dark", config.theme())
+        assertEquals("dark", config.getAll().getString(ConfigManager.KEY_THEME))
+    }
+
+    @Test
+    fun theme_setThemeRoundTrips() {
+        val config = ConfigManager(FakeSharedPreferences())
+        config.setTheme("light")
+        assertEquals("light", config.theme())
+        assertEquals("light", config.getAll().getString(ConfigManager.KEY_THEME))
+        config.setTheme("system")
+        assertEquals("system", config.theme())
+    }
+
+    @Test
+    fun theme_invalidFallsBackToDark() {
+        assertEquals("dark", ConfigManager.sanitizeTheme("blue"))
+        assertEquals("dark", ConfigManager.sanitizeTheme(null))
+        val prefs = FakeSharedPreferences()
+        prefs.edit().putString(ConfigManager.KEY_THEME, "blue").apply()
+        assertEquals("dark", ConfigManager(prefs).theme())
+        val config = ConfigManager(FakeSharedPreferences())
+        config.setTheme("purple")
+        assertEquals("dark", config.theme())
+    }
+
+    @Test
+    fun theme_resolveDark() {
+        assertEquals(true, ConfigManager.resolveDark("dark", false))
+        assertEquals(false, ConfigManager.resolveDark("light", true))
+        assertEquals(true, ConfigManager.resolveDark("system", true))
+        assertEquals(false, ConfigManager.resolveDark("system", false))
+        assertEquals(true, ConfigManager.resolveDark("blue", false))
+    }
+
+    @Test
+    fun theme_saveConfigIgnoresTheme() {
+        val config = ConfigManager(FakeSharedPreferences())
+        config.applyParams(JSONObject("""{"theme":"light"}"""))
+        assertEquals("dark", config.theme())
+    }
 }

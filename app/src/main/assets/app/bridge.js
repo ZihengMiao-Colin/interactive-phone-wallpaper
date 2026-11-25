@@ -5,6 +5,8 @@
  *   ?fail=depth  生成深度图失败
  *   ?active=0    本应用不是当前桌面壁纸
  *   ?xiaomi=0    不是小米手机
+ *   ?theme=dark|light|system  界面主题（默认 dark）
+ *   ?dark=0      系统是浅色（"跟随系统"时用，默认深色）
  */
 
 'use strict';
@@ -28,6 +30,8 @@ window.Bridge = (() => {
             isNative: true,
             getConfig: () => parse(native.getConfig(), {}),
             saveConfig: (partial) => native.saveConfig(JSON.stringify(partial)),
+            /** 存界面主题并让原生层换系统栏颜色；返回系统当前是不是深色 */
+            setTheme: (value) => native.setTheme(value),
             openImagePicker: () => native.openImagePicker(),
             saveCroppedImage: (picked, dataUrl) => native.saveCroppedImage(picked, dataUrl),
             discardPickedImage: (picked) => native.discardPickedImage(picked),
@@ -50,11 +54,13 @@ window.Bridge = (() => {
     const query = new URLSearchParams(location.search);
     const xiaomi = query.get('xiaomi') !== '0';
     let wallpaperActive = query.get('active') !== '0';
+    const systemDark = query.get('dark') !== '0';
     const PARAM_KEYS = ['parallaxMultiplier', 'smoothness', 'focusDepth', 'deadZoneDeg', 'maxTiltDeg', 'blurRadius'];
     const config = {
         parallaxMultiplier: 10, smoothness: 0.05, focusDepth: 0.5,
         deadZoneDeg: 3, maxTiltDeg: 30, blurRadius: 5,
         currentImage: 'sample.jpg', depthFile: 'sample-depth.png',
+        theme: query.get('theme') || 'dark',
     };
     /** 裁剪结果：文件名 → dataUrl */
     const files = {};
@@ -65,6 +71,11 @@ window.Bridge = (() => {
         saveConfig(partial) {
             for (const key of PARAM_KEYS) if (partial[key] !== undefined) config[key] = partial[key];
             console.log('[Bridge] saveConfig', JSON.stringify(partial));
+        },
+        setTheme(value) {
+            config.theme = value;
+            console.log('[Bridge] setTheme', value);
+            return systemDark;
         },
         openImagePicker() {
             setTimeout(() => window.onImageSelected && window.onImageSelected('sample-src.jpg'), 300);
@@ -98,7 +109,7 @@ window.Bridge = (() => {
         getPlatformInfo: () => ({
             apiLevel: 34, androidVersion: '14', versionName: '1.1.0',
             manufacturer: xiaomi ? 'Xiaomi' : 'Google', model: xiaomi ? '23127PN0CC' : 'Pixel 8',
-            screenWidth: 1080, screenHeight: 2340, isXiaomi: xiaomi,
+            screenWidth: 1080, screenHeight: 2340, isXiaomi: xiaomi, systemDark,
         }),
         requestBatteryOptimizationBypass() {
             console.log('[Bridge] 打开电池优化设置');

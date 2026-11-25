@@ -20,6 +20,7 @@ import org.json.JSONObject
  *   currentImage (string)      - 桌面壁纸正在用的图片文件名（只有"应用壁纸"时写）
  *   depthFile (string)         - 桌面壁纸正在用的深度图文件名（同上）
  *   hideDebugPanel (boolean)   - 隐藏调试面板, 默认 true
+ *   theme (string)             - 界面主题 dark | light | system, 默认 dark（只管 App 界面，壁纸服务不看）
  *
  * SharedPreferences 在进程内是单例：不同 ConfigManager 实例写的改动，
  * 其他实例注册的监听器都能收到（壁纸服务靠这个实时同步）。
@@ -41,7 +42,20 @@ class ConfigManager(private val prefs: SharedPreferences) {
         const val KEY_CURRENT_IMAGE = "currentImage"
         const val KEY_DEPTH_FILE = "depthFile"
         const val KEY_HIDE_DEBUG = "hideDebugPanel"
+        const val KEY_THEME = "theme"
         private const val KEY_BLUR_VERSION = "blurRadiusVersion"
+
+        private val THEMES = setOf("dark", "light", "system")
+
+        /** 界面主题只认 dark / light / system，其他值（含 null）当 dark */
+        fun sanitizeTheme(value: String?): String = if (value in THEMES) value!! else "dark"
+
+        /** 按设置和系统当前深浅算出界面是不是深色 */
+        fun resolveDark(theme: String, systemDark: Boolean): Boolean = when (sanitizeTheme(theme)) {
+            "light" -> false
+            "system" -> systemDark
+            else -> true
+        }
 
         /**
          * 边缘平滑的旧默认值。视差改成光线步进后默认值改成 5（和桌面一致）；
@@ -100,6 +114,14 @@ class ConfigManager(private val prefs: SharedPreferences) {
         put(KEY_CURRENT_IMAGE, this@ConfigManager.getString(KEY_CURRENT_IMAGE))
         put(KEY_DEPTH_FILE, this@ConfigManager.getString(KEY_DEPTH_FILE))
         put(KEY_HIDE_DEBUG, prefs.getBoolean(KEY_HIDE_DEBUG, true))
+        put(KEY_THEME, theme())
+    }
+
+    /** 界面主题：dark | light | system */
+    fun theme(): String = sanitizeTheme(prefs.getString(KEY_THEME, null))
+
+    fun setTheme(value: String) {
+        prefs.edit().putString(KEY_THEME, sanitizeTheme(value)).apply()
     }
 
     /** 推给渲染引擎的参数 {parallaxMultiplier, smoothness, focusDepth} */

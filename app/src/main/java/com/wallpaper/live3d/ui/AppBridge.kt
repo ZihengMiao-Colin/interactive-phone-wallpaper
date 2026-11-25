@@ -70,6 +70,17 @@ class AppBridge(
         }
     }
 
+    /**
+     * 换界面主题（dark | light | system，其他值当 dark）：存配置，原生层换系统栏和底色。
+     * 返回系统当前是不是深色：页面选"跟随系统"时用它算，不用等 onSystemThemeChange。
+     */
+    @JavascriptInterface
+    fun setTheme(value: String): Boolean {
+        configManager.setTheme(value)
+        activity.runOnUiThread { activity.applyTheme(syncNightMode = true) }
+        return activity.isSystemDark()
+    }
+
     // ==================== 选图与裁剪 ====================
 
     /** 打开系统图片选择器，结果 → onImageSelected → window.onImageSelected(pickedName) */
@@ -251,6 +262,7 @@ class AppBridge(
                 android.provider.Settings.canDrawOverlays(activity))
             put("isXiaomi",
                 android.os.Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true))
+            put("systemDark", activity.isSystemDark())
         }
         return info.toString()
     }

@@ -194,6 +194,11 @@ button { color: inherit; }
 .row .txt { flex: 1; min-width: 0; }
 .row .t { font-weight: 500; line-height: 1.5; }
 .row .s { color: var(--text-2); font-size: 12px; line-height: 1.6; }
+/* 控件放不下一行（界面主题的三段按钮）：换到说明下面，和文字左对齐、占满剩下的宽度 */
+.row.stack { flex-wrap: wrap; row-gap: 12px; }
+.row.stack .seg { display: flex; flex: 1 1 100%; margin-left: 48px; }
+.row.stack .seg button { flex: 1; }
+.group-head.first { margin-top: 12px; }
 
 /* 小米提示：左边一条警示斜纹 + 细框，只说明情况，不用黄底 */
 .notice {

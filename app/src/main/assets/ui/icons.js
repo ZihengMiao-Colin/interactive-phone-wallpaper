@@ -7,7 +7,7 @@
  *
  * 加载时把 <symbol id="i-<名字>"> 雪碧图插到页面里，HTML 直接写
  * <svg class="i"><use href="#i-check"/></svg>，JS 里用 Icons.svg('check')。
- * battery / smartphone / triangle-alert 是手机版新加的，同样来自 lucide-static@0.460.0。
+ * battery / smartphone / triangle-alert 是手机版新加的，sun 复制自桌面 ui/icons.js，同样来自 lucide-static@0.460.0。
  * 新增图标：从 lucide-static@0.460.0 的 icons/<名字>.svg 复制里面的元素，包成一条 <symbol>。
  */
 
@@ -28,6 +28,7 @@ const Icons = (() => {
         "<symbol id=\"i-circle-alert\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"10\" /><line x1=\"12\" x2=\"12\" y1=\"8\" y2=\"12\" /><line x1=\"12\" x2=\"12.01\" y1=\"16\" y2=\"16\" /></symbol>",
         "<symbol id=\"i-info\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"10\" /><path d=\"M12 16v-4\" /><path d=\"M12 8h.01\" /></symbol>",
         "<symbol id=\"i-loader-circle\" viewBox=\"0 0 24 24\"><path d=\"M21 12a9 9 0 1 1-6.219-8.56\" /></symbol>",
+        "<symbol id=\"i-sun\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"4\" /><path d=\"M12 2v2\" /><path d=\"M12 20v2\" /><path d=\"m4.93 4.93 1.41 1.41\" /><path d=\"m17.66 17.66 1.41 1.41\" /><path d=\"M2 12h2\" /><path d=\"M20 12h2\" /><path d=\"m6.34 17.66-1.41 1.41\" /><path d=\"m19.07 4.93-1.41 1.41\" /></symbol>",
         "<symbol id=\"i-battery\" viewBox=\"0 0 24 24\"><rect width=\"16\" height=\"10\" x=\"2\" y=\"7\" rx=\"2\" ry=\"2\" /><line x1=\"22\" x2=\"22\" y1=\"11\" y2=\"13\" /></symbol>",
         "<symbol id=\"i-smartphone\" viewBox=\"0 0 24 24\"><rect width=\"14\" height=\"20\" x=\"5\" y=\"2\" rx=\"2\" ry=\"2\" /><path d=\"M12 18h.01\" /></symbol>",
         "<symbol id=\"i-triangle-alert\" viewBox=\"0 0 24 24\"><path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /><path d=\"M12 9v4\" /><path d=\"M12 17h.01\" /></symbol>",
