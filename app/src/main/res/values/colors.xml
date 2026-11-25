@@ -3,11 +3,6 @@
     <!-- 启动画面和页面出来前的底色：夜间（assets/ui/tokens.css 的 ink / bg 两个变量）。
          Android 12 起用户选了日间时系统按 values-notnight-v31 画；更老的系统启动那一下一律夜间
          （默认主题是夜间，按系统深浅挑反而会让多数人闪一下白）。改了要同步 tokens.css 和 MainActivity -->
-    <color name="primary">#7ecfff</color>
     <color name="ink">#141516</color>
     <color name="background">#0f0f10</color>
-
-    <!-- 启动图标用 -->
-    <color name="text_primary">#e0e0e0</color>
-    <color name="text_secondary">#888888</color>
 </resources>

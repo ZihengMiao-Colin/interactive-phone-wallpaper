@@ -1,19 +1,19 @@
-# 互动3D壁纸 · Android 版 — 项目笔记
+# Kirie 壁纸 · Android 版 — 项目笔记
 
-> 最近更新：2026-10-30（同步桌面的光线步进视差、边缘平滑默认 5，见 §5.2）
+> 最近更新：2026-11-24（方舟风格界面、夜间 / 日间主题、改名 Kirie 壁纸、K 字图标，见 §5.3）
 > 用途：后续开发的"地图"。改动代码后请顺手更新本文件。
-> 桌面版：`C:\Users\24418\Desktop\2\壁纸`（Electron，v1.0.0 已发布），很多算法和界面从那边移植过来，见 §3。
+> 桌面版：`C:\Users\24418\Desktop\2\壁纸`（Electron，Kirie 壁纸），很多算法和界面从那边移植过来，见 §3。
 
 ## 1. 一句话概括
 
-Android 动态壁纸：选一张图片 → 按屏幕比例裁剪 → 手机本地用 Depth Anything V2（ONNX Runtime，CPU）生成深度图 → 壁纸服务里的 WebView 用 Pixi.js 自定义 2.5D 视差着色器全屏绘制 → 重力传感器驱动视差，倾斜手机时画面按远近错开。
+Kirie 壁纸（和桌面版同名，Kirie 是日语"切り絵"，剪纸画）的 Android 版，动态壁纸：选一张图片 → 按屏幕比例裁剪 → 手机本地用 Depth Anything V2（ONNX Runtime，CPU）生成深度图 → 壁纸服务里的 WebView 用 Pixi.js 自定义 2.5D 视差着色器全屏绘制 → 重力传感器驱动视差，倾斜手机时画面按远近错开。
 
 ## 2. 技术栈与运行
 
 | 项 | 现状 |
 |---|---|
 | 外壳 | Kotlin，AGP 9.0、Gradle 9.3、JDK 17，compileSdk / targetSdk 36，minSdk 24 |
-| 界面和渲染 | WebView + Pixi.js 7.4.2（和桌面同版本），普通 JS / CSS，不用框架和构建步骤 |
+| 界面和渲染 | WebView + Pixi.js 7.4.2（和桌面同版本），普通 JS / CSS，不用框架和构建步骤；界面样式用了 `color-mix()` 和 `:has()`，要求 WebView（Chromium）111+ |
 | 动态壁纸 | `WallpaperService` + VirtualDisplay + Presentation 承载 WebView（这样才有 WebGL） |
 | 深度模型 | Depth Anything V2 Small fp32，就是桌面根目录的 `depth_anything_v2_small_ir9.onnx`，复制到 `app/src/main/assets/models/depth_anything_v2_small.onnx`（约 100MB，不进 git） |
 | 测试 | JVM 单元测试（JUnit 4）：`./gradlew testDebugUnitTest` |
@@ -23,16 +23,17 @@ Android 动态壁纸：选一张图片 → 按屏幕比例裁剪 → 手机本�
 - **浏览器开发预览**（没有手机也能看界面和渲染）：`.claude/launch.json` 里的 `phone-dev`（用桌面项目 venv 的 Python 在仓库根目录起 `http.server 8766`），打开
   - 主界面：`http://localhost:8766/app/src/main/assets/app/app.html`（手机视口看）
   - 壁纸页：`http://localhost:8766/app/src/main/assets/wallpaper/wallpaper.html`，在控制台执行 `startWallpaper('/dev/sample.jpg', '/dev/sample-depth.png')`
-  - 不在 App 里时 `app/bridge.js` 用假实现，数据来自 `dev/`；URL 参数：`?fail=depth`（生成失败）、`?active=0`（本应用不是壁纸）、`?xiaomi=0`（非小米）
-  - 浏览器窗格隐藏时 rAF 被节流、截图可能错位，验证时用 DOM 测量或手动推 ticker（`CoreEngine.getApp().ticker.update(t)`）
+  - 不在 App 里时 `app/bridge.js` 用假实现，数据来自 `dev/`；URL 参数：`?fail=depth`（生成失败）、`?active=0`（本应用不是壁纸）、`?xiaomi=0`（非小米）、`?theme=dark|light|system`（界面主题）、`?dark=0`（模拟系统是浅色）
+  - 浏览器窗格隐藏时 rAF 被节流、截图可能错位，验证时用 DOM 测量或手动推 ticker（`CoreEngine.getApp().ticker.update(t)`）；换页的渐显动画也会卡在半透明，截图前 `document.getAnimations().forEach(a => a.finish())`
+  - `http.server` 会让浏览器缓存旧的 CSS / JS，改完先 `fetch(url, { cache: "reload" })` 刷一遍再重新加载
 
 ## 3. 文件地图
 
 ```
 app/src/main/
 ├── java/com/wallpaper/live3d/
-│   ├── MainActivity.kt          主界面：WebView、全面屏 inset、前台时陀螺仪推给预览、回前台通知页面、跳动态壁纸预览页
-│   ├── config/ConfigManager.kt  SharedPreferences：参数（带范围钳位）、setWallpaper、监听器（壁纸服务实时同步靠它）
+│   ├── MainActivity.kt          主界面：WebView、全面屏 inset、界面主题（系统栏和底色）、前台时陀螺仪推给预览、回前台通知页面、跳动态壁纸预览页
+│   ├── config/ConfigManager.kt  SharedPreferences：参数（带范围钳位）、界面主题、setWallpaper、监听器（壁纸服务实时同步靠它）
 │   ├── depth/
 │   │   ├── DepthProcessing.kt   深度图数值处理（纯函数）— 移植自桌面 src/depth/processing.js，结果逐值一致
 │   │   └── DepthEstimator.kt    解码（大图降采样）→ 518×518 → ONNX → 后处理 → depth_<时间戳>.png，分阶段报进度
@@ -53,9 +54,13 @@ app/src/main/
     │   ├── config-sync.js       配置节流保存（复制自桌面）
     │   ├── config.js            默认参数
     │   └── image_loader.js      图片加载、占位深度图
-    ├── ui/tokens.css、ui/icons.js   配色、控件、Lucide 图标（基于桌面 ui/，按触控放大）
+    ├── ui/tokens.css            配色（夜间 / 日间）、基础控件 — 复制自桌面 ui/tokens.css，和桌面的不同写在文件头
+    ├── ui/icons.js              Lucide 图标雪碧图 + 滑块填充（基于桌面 ui/icons.js，只留用到的）
+    ├── ui/fonts/                思源宋体（按字切片）、Saira 和许可证 — 复制自桌面 ui/fonts/
+    ├── ui/icon.svg              软件图标（K 字）— 复制自桌面 assets/icon.svg
     ├── app/                     主界面
-    │   ├── app.html / app.css   结构和布局（三个页签 + 裁剪 + 提示条）
+    │   ├── app.html / app.css   结构和布局（三个页签 + 裁剪 + 提示条），外观照桌面 settings/settings.css
+    │   ├── theme.js             界面主题：<head> 里同步执行，首次绘制前写 <html data-theme>
     │   ├── bridge.js            包装 AppBridge；浏览器里用假实现
     │   ├── main.js              共享状态（applied / selected）、事件、页面注册
     │   ├── shell.js / controls.js   页签、提示条 / 滑块、分段按钮
@@ -64,11 +69,13 @@ app/src/main/
     │   └── wallpaper-page.js / parallax-page.js / system-page.js
     ├── wallpaper/               壁纸服务里的页面（wallpaper.html、wallpaper_render.js、pixi.min.js）
     └── models/                  ONNX 模型（不进 git）
+app/src/main/res/                名字（strings.xml）、启动图标（drawable/ic_launcher_*，K 字取自桌面 assets/icon.svg）、
+                                 启动底色（values/ 夜间、values-notnight-v31/ 日间）
 dev/                             浏览器开发预览用的示例图和深度图
 docs/superpowers/                设计文档和实施计划
 ```
 
-**和桌面同步的文件**（文件头有来源注释，改一边要改另一边）：`shared/parallax-math.js`、`frame-pacing.js`、`config-sync.js`（内容逐字复制，只多一行注释；桌面有的文件是 CRLF，核对用 `diff --strip-trailing-cr`）、`shared/shaders.js`（节选）、`DepthProcessing.kt`（移植，测试里的 Pillow 对照数据也来自桌面）。`ui/tokens.css`、`ui/icons.js` 是在桌面版基础上改的。
+**和桌面同步的文件**（文件头有来源注释，改一边要改另一边）：`shared/parallax-math.js`、`frame-pacing.js`、`config-sync.js`（内容逐字复制，只多一行注释；桌面有的文件是 CRLF，核对用 `diff --strip-trailing-cr`）、`shared/shaders.js`（节选）、`DepthProcessing.kt`（移植，测试里的 Pillow 对照数据也来自桌面）。`ui/tokens.css`（复制后改了主题选择器、触控尺寸、字体和悬停，见文件头）、`ui/fonts/`、`ui/icon.svg`（原样复制）、`res/drawable/ic_launcher_foreground.xml`（路径取自桌面 `assets/icon.svg`）；`ui/icons.js`、`app/app.css` 是照桌面改的。夜间 / 日间的 `--ink`、`--bg` 还写在 `res/values*/colors.xml` 和 `MainActivity` 里，改色要几处一起改。
 
 ## 4. 核心流程
 
@@ -116,6 +123,15 @@ docs/superpowers/                设计文档和实施计划
 - 验证：单元测试 42 个全过，`assembleDebug` 通过；浏览器预览里壁纸页（手机视口、强度 30、倾斜到底）和主界面都正常渲染，没有报错。**没上真机**（当时没连手机）。
 - 要在真机上看的：①性能——每个像素最多读约 47 次深度图（原来 2 次），默认强度 10 时约 20 次；手机 GPU 比电脑弱，倾斜时看 logcat 帧数有没有明显掉（原来约 55 帧）。②前景边缘：同一张图按 5 重新生成深度图后倾斜到底，主体不该再有对折出的重影。已经生成过的深度图还是旧值，要重新生成才换。
 
+## 5.3 方舟风格界面、夜间 / 日间主题、改名 Kirie 壁纸（2026-11-24）
+
+目标：手机和桌面看起来是同一个软件（设计 `docs/superpowers/specs/2026-11-24-ark-ui-kirie-design.md`，计划 `docs/superpowers/plans/2026-11-24-ark-ui-kirie.md`）。桌面后来加的功能（元素、天气、视频特效、唱片机等）不跟。
+- **界面**：`ui/tokens.css` 换成桌面那份（用户个人 skill `ark-style-ui` 的色值：黑白灰 + 青色，直角，色条加细框，黑白反转），按手指放大（按钮 44px、分段 36px、滑块竖条 10×24）。悬停样式收进 `@media (hover: hover)`，不然手机上点完按钮会一直停在悬停色。`app.css` 照桌面组件改：壁纸页顶栏是桌面标题栏的样子（K 图标 + Kirie + "互动 3D 壁纸"），视差 / 设置页是"8px 色条 + 宋体 + 英文小字"的页面标题，分组标题 4px 色条，预览四角 L 形细线，"应用壁纸"和裁剪"确认"是黑白反转按钮，小米提示用警示斜纹，提示条是实底加左边色条，页签栏选中项顶边一条主色。压在图片上的东西（预览提示、裁剪框）固定用夜间颜色。
+- **主题**：设置页最上面"界面主题"：夜间（默认）/ 日间 / 跟随系统，存在配置 `theme`。`app/theme.js` 在 `<head>` 里读 `AppBridge.getConfig()` 和 `getPlatformInfo().systemDark`，首次绘制前写好 `<html data-theme>`；点了马上换，不重新加载页面。原生层 `MainActivity.applyTheme()` 换状态栏 / 导航栏图标深浅、根布局和 WebView 底色；清单 `configChanges` 加了 `uiMode`，系统切深浅时不重建 Activity，`onConfigurationChanged` 里调 `window.onSystemThemeChange(dark)`。`systemDark` 读 `Resources.getSystem()`，不受应用自己的深浅影响。
+- **启动底色**：`values/colors.xml` 一律夜间，`values-notnight-v31/colors.xml` 放日间；Android 12 起 `UiModeManager.setApplicationNightMode` 把用户选的主题告诉系统（系统会记着），启动画面按它挑。Android 12 以下启动画面只能跟系统深浅，默认主题是夜间，所以那里一律夜间（选了日间的人启动那一下是深色）。
+- **名字和图标**：`app_name` = Kirie 壁纸，壁纸说明"互动 3D 视差动态壁纸"，删了没用的旧字符串和颜色。自适应图标：底色 `#0f0f10`，前景是桌面 `assets/icon.svg` 的三个 K（路径原样，缩放 50/212 放进 66dp 安全区）。包名 `com.wallpaper.live3d`、prefs 文件名都没改（改包名等于换一个应用，已装的会丢设置）。
+- `AppBridge.setTheme(value)` 返回系统当前是不是深色：主题强制成夜间 / 日间时系统切深浅不会触发 `onConfigurationChanged`，页面里记的系统深浅会过期，改选"跟随系统"时用返回值。
+
 ## 6. 已知但没做
 
 - 模型在 assets 和 `filesDir/models/` 各存一份（每次初始化还会重新复制），首次生成慢、多占约 100MB。
@@ -123,4 +139,6 @@ docs/superpowers/                设计文档和实施计划
 - 默认视差强度 10、去抖阈值 0.01、桌面滑动偏移权重 0.33 是按桌面和推算定的，真机手感不对再调。
 - 审查时记下、没修的小问题：`SensorHelper.start()` 不重置去抖基准（壁纸页重新加载后手机静止时画面停在中间，动一下就好）；`CoreEngine.load` 没有序号保护（极快连续换图可能显示旧图）；`resizeRgb8` 多复制一份 RGB；缺少后处理随机输入的桌面逐值对照测试；`wallpaper_render.js` 的 `setupTouchFallback` 是死代码；回前台时即使引擎还在也会重新上传纹理；裁剪框四角看起来能拖其实不能。
 - 旧代码就有、这轮没碰：选图在主线程复制（云端大图可能卡顿）；不支持 HEIC；没有处理 WebView 渲染进程崩溃（`onRenderProcessGone`）。
+- 启动图标只有 `mipmap-anydpi-v26`（自适应图标），minSdk 24，Android 7.x 的手机上没有对应图标（一直如此）。
+- 界面样式要求 WebView 111+（`color-mix()`、`:has()`），更老的 WebView 上部分底色和标签会变透明。
 - 悬浮窗权限相关的旧代码（`SYSTEM_ALERT_WINDOW`、`requestOverlayPermission`）界面上没有入口，没动。

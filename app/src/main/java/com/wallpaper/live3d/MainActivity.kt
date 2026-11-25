@@ -266,7 +266,7 @@ class MainActivity : AppCompatActivity() {
             // 某些 ROM 可能不支持此 Intent
             Toast.makeText(
                 this,
-                "请手动前往: 设置 → 应用 → 互动3D壁纸 → 电池 → 无限制",
+                "请手动前往: 设置 → 应用 → ${getString(R.string.app_name)} → 电池 → 无限制",
                 Toast.LENGTH_LONG
             ).show()
         }
